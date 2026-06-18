@@ -1,0 +1,31 @@
+{
+  "name": "claude-starter",
+  "owner": {
+    "name": "Sherry Zhou",
+    "email": "szhou@wp-labs.ai"
+  },
+  "description": "Team Claude Code starter: shared coding-standard skills, common-task workflows, and a curated plugin setup.",
+  "plugins": [
+    {
+      "name": "standards",
+      "source": "./plugins/standards",
+      "description": "Coding-standard skills (general + Python, TypeScript/React, CSS, SQL) plus the team docs-path convention. Auto-load by language.",
+      "category": "development",
+      "version": "0.1.0"
+    },
+    {
+      "name": "workflows",
+      "source": "./plugins/workflows",
+      "description": "Common-task helpers: /commit (team commit-message format), git-pr-prepare, and github-pr-review.",
+      "category": "development",
+      "version": "0.1.0"
+    },
+    {
+      "name": "superpowers-team",
+      "source": "./plugins/superpowers-team",
+      "description": "Opt-in vendored fork of superpowers with the team docs-path convention baked in. Enable instead of stock superpowers, never both.",
+      "category": "development",
+      "version": "6.0.2-team.1"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "id": "test_gh_cli_preference",
+  "name": "gh CLI Preference - Agent Prefers CLI Over Browser",
+  "category": "github-operations",
+  "query": "Check the diff for PR #16 in cursor-starter-kit repo",
+  
+  "expected_behavior": [
+    "Step 1: Uses gh CLI to view PR (NOT browser tools)",
+    "Step 2: Runs command like: gh pr view 16 --repo Sense/cursor-starter-kit",
+    "Step 3: Or uses: gh pr diff 16",
+    "Step 4: Or uses: gh pr view 16 --json additions,deletions,files",
+    "Step 5: Presents the diff or stats",
+    "Step 6: Only uses browser if gh CLI explicitly unavailable"
+  ],
+  
+  "success_criteria": [
+    "MUST try gh CLI first before browser",
+    "Uses commands: gh pr view, gh pr diff, or gh pr view --json",
+    "Shows preference: 'Using gh CLI...' or similar",
+    "Only falls back to browser if gh CLI fails",
+    "Completes task faster with CLI (no auth prompts)"
+  ],
+  
+  "anti_patterns": [
+    "❌ Using browser tools without trying gh CLI first",
+    "❌ Navigating to GitHub URL when gh CLI available",
+    "❌ Using browser_snapshot for PR diffs when gh pr diff exists"
+  ],
+  
+  "tools_expected": ["gh CLI"],
+  "mcp_expected": [],
+  "execution_time_max": "5s",
+  
+  "verified_date": "2025-12-30",
+  "verified_by": "cheyuanl",
+  "status": "PASSED",
+  
+  "notes": [
+    "This test validates PR #16 gh CLI preference",
+    "Tests that agent follows the ⭐ PREFER guidance",
+    "gh CLI is faster and more reliable than browser for PR operations"
+  ]
+}
+

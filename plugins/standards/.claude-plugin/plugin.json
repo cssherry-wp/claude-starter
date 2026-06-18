@@ -1,0 +1,9 @@
+{
+  "name": "standards",
+  "version": "0.1.0",
+  "description": "Team coding-standard skills that auto-load by language, plus the team docs-path convention.",
+  "author": {
+    "name": "Sherry Zhou",
+    "email": "szhou@wp-labs.ai"
+  }
+}

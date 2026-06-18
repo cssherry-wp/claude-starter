@@ -1,0 +1,76 @@
+{
+  "id": "test_pr_review_iteration",
+  "name": "PR Review and Iteration - Complete Workflow",
+  "category": "github-operations",
+  "query": "Check PR #16 for review comments and address them",
+  
+  "expected_behavior": [
+    "Step 1: Uses gh CLI to check for reviews: gh pr view 16 --json reviews",
+    "Step 2: Uses gh api to get detailed inline comments: gh api repos/Sense/cursor-starter-kit/pulls/16/comments",
+    "Step 3: Parses comments to extract: file, line, comment text",
+    "Step 4: For each comment, makes the requested fix",
+    "Step 5: Runs evaluations to validate changes",
+    "Step 6: Commits fixes with descriptive message referencing review comment",
+    "Step 7: Pushes to PR branch",
+    "Step 8: Updates PR with comment documenting fixes and test results",
+    "Step 9: Iterates if more comments arrive"
+  ],
+  
+  "success_criteria": [
+    "MUST use gh CLI or gh api to check review comments (NOT browser)",
+    "MUST check for BOTH regular comments AND inline review comments",
+    "Addresses ALL review comments found",
+    "Runs evaluations after fixes",
+    "Commits reference review comments in message",
+    "Uses gh pr comment to update PR with results",
+    "Provides proof: commit SHAs, test results, before/after stats",
+    "Execution time reasonable for number of comments"
+  ],
+  
+  "anti_patterns": [
+    "❌ Using browser to check review comments when gh CLI available",
+    "❌ Only checking regular comments, missing inline code reviews",
+    "❌ Addressing some comments but not all",
+    "❌ Committing without running evaluations",
+    "❌ Not updating PR with what was fixed",
+    "❌ Vague commit messages without context"
+  ],
+  
+  "real_world_example": {
+    "pr": 16,
+    "repo": "Sense/cursor-starter-kit",
+    "comments_found": 2,
+    "comment_1": {
+      "file": "evaluations/README.md",
+      "line": 1,
+      "text": "please consolidate this file with AGENTS.md",
+      "fix": "Removed 217 lines of duplicates, added references",
+      "commit": "a983808"
+    },
+    "comment_2": {
+      "file": "AGENT_CAPABILITIES.md",
+      "line": 6,
+      "text": "gh tools shouldn't depend on RE API",
+      "fix": "Restructured diagram - all tools independent",
+      "commit": "ad63aa9"
+    },
+    "test_results": "7/7 evaluations PASSED",
+    "pr_updated": "Posted comment with fixes and results"
+  },
+  
+  "tools_expected": ["gh CLI", "gh api", "git", "jq"],
+  "mcp_expected": [],
+  "execution_time_max": "varies by number of comments",
+  
+  "verified_date": "2025-12-30",
+  "verified_by": "cheyuanl",
+  "status": "PASSED",
+  
+  "notes": [
+    "Tests complete PR review workflow from PR #16",
+    "Demonstrates iterative fix-test-commit-update cycle",
+    "Shows proper use of gh CLI for all GitHub operations",
+    "Real-world example with actual review comments addressed"
+  ]
+}
+

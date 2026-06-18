@@ -1,0 +1,29 @@
+{
+  "name": "Reply to Inline PR Comments",
+  "skills": ["github-pr-review"],
+  "query": "How do I reply to inline comments on PR #30 in Sense/cursor-starter-kit?",
+  "expected_behavior": [
+    "Step 1: Provides GraphQL query to get review thread IDs",
+    "Step 1a: Shows query with repository owner, name, and PR number",
+    "Step 1b: Explains thread ID vs comment ID difference",
+    "Step 2: Shows addPullRequestReviewThreadReply mutation",
+    "Step 2a: Demonstrates proper reply format with ✅ prefix",
+    "Step 2b: Explains how to reference the thread ID",
+    "Step 3: Shows resolveReviewThread mutation",
+    "Step 3a: Provides batch resolve example for multiple threads",
+    "Step 4: Shows verification query to check all threads resolved"
+  ],
+  "success_criteria": [
+    "Provides complete GraphQL query for getting threads",
+    "Shows mutation for replying to threads (not just comments)",
+    "Includes thread ID extraction example",
+    "Demonstrates resolve mutation",
+    "Explains difference between REST and GraphQL API",
+    "Mentions thread IDs start with 'MDIzOlB1bGxSZXF1ZXN0UmV2aWV3VGhyZWFk'",
+    "Provides troubleshooting for common errors (404, permissions)",
+    "Shows complete workflow example",
+    "Execution time < 5 seconds"
+  ],
+  "verified_date": "2026-01-26",
+  "status": "PASSED"
+}

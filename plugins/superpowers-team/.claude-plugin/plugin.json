@@ -1,0 +1,21 @@
+{
+  "name": "superpowers-team",
+  "description": "Team fork of superpowers (TDD, debugging, brainstorming, plans) with the team docs-path convention baked in. Enable instead of stock superpowers — never both.",
+  "version": "6.0.2-team.1",
+  "author": {
+    "name": "Sherry Zhou",
+    "email": "szhou@wp-labs.ai"
+  },
+  "homepage": "https://github.com/cssherry-wp/claude-starter",
+  "repository": "https://github.com/cssherry-wp/claude-starter",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "tdd",
+    "debugging",
+    "collaboration",
+    "best-practices",
+    "workflows",
+    "fork"
+  ]
+}

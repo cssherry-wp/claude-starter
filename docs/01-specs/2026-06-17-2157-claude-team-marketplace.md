@@ -126,7 +126,9 @@ committed CLAUDE.md. Per the brainstorming choice we use skills for cross-repo p
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "context7@claude-plugins-official": true
+    "context7@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
   }
 }
 ```
@@ -134,6 +136,13 @@ committed CLAUDE.md. Per the brainstorming choice we use skills for cross-repo p
 Default = stock superpowers + the `team-docs-convention` overlay (from `standards`). To use the
 fork instead, the team disables `superpowers@superpowers-marketplace` and enables
 `superpowers-team@claude-starter` (never both — duplicate skill names).
+
+**Opt-in plugins** (documented in the README, not in the default `enabledPlugins`): the team
+adds these when needed —
+- `chrome-devtools-mcp@claude-plugins-official` — perf traces, Lighthouse, memory profiling
+  (Playwright covers test writing + functional debugging; add this only for perf/CWV/memory work).
+- `ralph-loop@claude-plugins-official` — autonomous loop runner; better as an individual opt-in.
+- `superpowers-team@claude-starter` — the vendored fork (see above).
 
 ## Manifests
 
@@ -148,6 +157,7 @@ fork instead, the team disables `superpowers@superpowers-marketplace` and enable
   README states this.
 - The vendored fork must be manually refreshed on upstream superpowers releases; recorded base
   sha + `FORK.md` make this a copy + re-apply of the path replacements.
-- Curated external plugin set (code-review, code-simplifier, security-guidance, context7) is a
-  starting point; the team can add/remove entries in `team-settings.json`.
+- Default external set (code-review, code-simplifier, security-guidance, context7, playwright,
+  typescript-lsp) is a starting point; chrome-devtools-mcp, ralph-loop, and the superpowers fork
+  are opt-in. The team can add/remove entries in `team-settings.json`.
 - Verification is `claude plugin validate` on each manifest (no runtime tests apply to static config).

@@ -1,0 +1,9 @@
+{
+  "name": "workflows",
+  "version": "0.1.0",
+  "description": "Common-task helpers: /commit, git-pr-prepare, and github-pr-review.",
+  "author": {
+    "name": "Sherry Zhou",
+    "email": "szhou@wp-labs.ai"
+  }
+}

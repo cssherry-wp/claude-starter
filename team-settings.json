@@ -1,0 +1,21 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-starter": {
+      "source": { "source": "github", "repo": "cssherry-wp/claude-starter" }
+    },
+    "superpowers-marketplace": {
+      "source": { "source": "github", "repo": "obra/superpowers-marketplace" }
+    }
+  },
+  "enabledPlugins": {
+    "standards@claude-starter": true,
+    "workflows@claude-starter": true,
+    "superpowers@superpowers-marketplace": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
+  }
+}
