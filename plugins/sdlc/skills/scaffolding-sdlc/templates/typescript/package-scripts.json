@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc -b --pretty"
+  }
+}
