@@ -32,7 +32,6 @@ select = ["E", "W", "F", "B", "BLE", "UP", "N", "SIM", "RUF", "S", "I"]
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "**/tests/test_*.py" = ["S101"]
-"config/settings.py" = ["S105"]
 
 [tool.ruff.format]
 quote-style = "double"
