@@ -1,0 +1,30 @@
+[tool.pytest.ini_options]
+python_files = ["tests/test_*.py", "test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "B", "BLE", "UP", "N", "SIM", "RUF", "S", "I"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"**/tests/test_*.py" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+ignore_missing_imports = true
+follow_imports = "skip"
+exclude = ["*/migrations/*", "*/test_*", "*/tests.py"]
