@@ -53,6 +53,10 @@ DOC="docs/${DATE}_${SLUG}.md"
 
 {
   printf '# %s\n\n' "$SUBJECT"
+  # The backticks below are literal Markdown (they render the hash as inline
+  # code), NOT shell command substitution. The values are substituted by
+  # printf from the double-quoted args, so single quotes here are correct.
+  # shellcheck disable=SC2016
   printf '**Date**: %s  \n**Commit**: `%s`\n\n' "$DATE" "$HASH"
   [ -n "$BODY" ] && printf '%s\n' "$BODY"
   if [ -n "$SESSION_SUMMARY" ]; then

@@ -8,12 +8,13 @@ helpers, and a curated plugin setup so everyone gets the same Claude Code experi
 
 ## What's inside
 
-This repo is itself the marketplace (`.claude-plugin/marketplace.json`). It ships three plugins:
+This repo is itself the marketplace (`.claude-plugin/marketplace.json`). It ships four plugins:
 
 | Plugin | What it gives you |
 |---|---|
 | **standards** | Coding-standard skills (`general-coding-guidelines`, `python-style`, `typescript-style`, `css-style`, `sql-style`, `team-docs-convention`). A `PreToolUse` hook also injects the matching standard **deterministically by file type** on every edit (see [Deterministic standards](#deterministic-standards)). |
 | **workflows** | `/commit` (our structured commit-message format) and the `git-pr-prepare` + `github-pr-review` skills. |
+| **sdlc** | The `scaffolding-sdlc` skill: interactively bootstraps a repo's SDLC — a runnable starter app (TypeScript / Python+Django / fullstack Python+React), a Makefile task runner, pre-commit + commit-doc hooks, and GitHub Actions for lint/typecheck/unit/Playwright-e2e/security gates, Dependabot, PR-status labels, PR auto-rebase, and the Claude review/triage workflows. |
 | **superpowers-team** | *Opt-in.* A fork of [superpowers](https://github.com/obra/superpowers) with our docs-path convention baked in. See [`plugins/superpowers-team/FORK.md`](plugins/superpowers-team/FORK.md). |
 
 We also recommend a curated set of **external** plugins (see [Recommended setup](#recommended-setup)).
@@ -24,6 +25,7 @@ We also recommend a curated set of **external** plugins (see [Recommended setup]
 /plugin marketplace add cssherry-wp/claude-starter
 /plugin install standards@claude-starter
 /plugin install workflows@claude-starter
+/plugin install sdlc@claude-starter
 ```
 
 Then enable the recommended external plugins:
