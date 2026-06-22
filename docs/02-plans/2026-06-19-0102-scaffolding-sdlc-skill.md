@@ -1133,6 +1133,7 @@ actionlint "$W/code-review.yml" "$W/claude.yml" "$W/claude-comment-triage.yml" "
 grep -q 'cssherry-wp/claude-starter' "$W/claude-comment-triage.yml"
 grep -q 'no-automation' "$W/claude-comment-triage.yml" && ! grep -q 'do-not-respond' "$W/claude-comment-triage.yml"
 grep -q 'force-with-lease' "$W/pr-rebase.yml" && grep -q 'needs-rebase' "$W/pr-rebase.yml"
+grep -q 'create-github-app-token' "$W/pr-rebase.yml" && grep -q 'secrets.REBASE_TOKEN' "$W/pr-rebase.yml"
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -1196,6 +1197,8 @@ jobs:
 
 - [ ] **Step 6: Create `pr-rebase.yml`** (net-new):
 
+Auth: prefer a **GitHub App** installation token (not tied to a user, short-lived), fall back to a fine-grained **PAT** (`REBASE_TOKEN`), then `GITHUB_TOKEN` as last resort. Only the first two re-trigger CI on the rebased commit; `GITHUB_TOKEN` pushes do not. The App step uses `continue-on-error` so a repo without the App secrets degrades to the PAT/`GITHUB_TOKEN` fallback automatically.
+
 ```yaml
 name: PR Rebase
 
@@ -1212,13 +1215,22 @@ jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
+      # Preferred: GitHub App installation token. Falls back to a fine-grained
+      # PAT (REBASE_TOKEN), then GITHUB_TOKEN (which does NOT re-trigger CI).
+      - name: Mint GitHub App token (preferred)
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REBASE_APP_ID }}
+          private-key: ${{ secrets.REBASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.REBASE_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Rebase behind PRs onto main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.REBASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -1256,7 +1268,7 @@ jobs:
 
 - [ ] **Step 7: Run tests to verify they pass**
 
-Run Step 1. Expected: no MISSING; `actionlint` clean on all five; `cssherry-wp/claude-starter` present; `no-automation` present and `do-not-respond` absent in the triage workflow; `force-with-lease` and `needs-rebase` present in `pr-rebase.yml`.
+Run Step 1. Expected: no MISSING; `actionlint` clean on all five; `cssherry-wp/claude-starter` present; `no-automation` present and `do-not-respond` absent in the triage workflow; `force-with-lease`, `needs-rebase`, `create-github-app-token`, and `secrets.REBASE_TOKEN` all present in `pr-rebase.yml`.
 
 - [ ] **Step 8: Commit**
 
@@ -1279,8 +1291,9 @@ Caveats/assumptions:
 - do-not-respond renamed to no-automation throughout.
 - pr-status-labels resolves PR via head_sha; single-PR-per-sha assumption.
 - pr-rebase only touches same-repo branches (cannot push to forks) and skips
-  no-automation PRs; pushes use the default GITHUB_TOKEN, which does NOT
-  re-trigger CI on the rebased commit (use a PAT/app token if CI must re-run).
+  no-automation PRs. Auth prefers a GitHub App token, falls back to a
+  fine-grained PAT (REBASE_TOKEN), then GITHUB_TOKEN; only the first two
+  re-trigger CI on the rebased commit. App/PAT secrets are a manual prereq.
 EOF
 )"
 ```
@@ -1408,6 +1421,12 @@ clobber existing files — detect, diff, ask, merge.
 - Authenticated `gh` CLI with repo admin (labels, branch protection).
 - Repo secrets to add manually: `CLAUDE_CODE_OAUTH_TOKEN` (required for the four
   Claude workflows), `SEMGREP_APP_TOKEN` (optional).
+- For `pr-rebase.yml` to re-trigger CI on rebased commits, add **either** a
+  GitHub App (preferred) — secrets `REBASE_APP_ID` + `REBASE_APP_PRIVATE_KEY`,
+  App permissions Contents: write and Pull requests: write, installed on the
+  repo — **or** a fine-grained PAT `REBASE_TOKEN` (same two permissions) as a
+  fallback. Without either it falls back to `GITHUB_TOKEN`, which still rebases
+  but does not re-run CI.
 - `gitleaks` installed locally for the pre-commit secret scan
   (`brew install gitleaks`).
 
@@ -1458,8 +1477,8 @@ directory; copy from there.
    `templates/github/dependabot.yml` → `.github/dependabot.yml`. Skip any
    workflow the user opted out of (e.g. no Semgrep → leave the `semgrep` job out
    of `security.yml`). `pr-rebase.yml` auto-rebases behind PRs onto `main` and
-   force-pushes with lease; mention that pushes use the default `GITHUB_TOKEN`
-   (which does not re-trigger CI on the rebased commit).
+   force-pushes with lease; remind the user to add the GitHub App (preferred) or
+   `REBASE_TOKEN` PAT secrets so rebased pushes re-trigger CI (see Prerequisites).
 
 7. **Ensure labels.** Run `scripts/ensure-labels.sh` (idempotent). Creates
    `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`,
