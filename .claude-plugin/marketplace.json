@@ -26,6 +26,13 @@
       "description": "Opt-in vendored fork of superpowers with the team docs-path convention baked in. Enable instead of stock superpowers, never both.",
       "category": "development",
       "version": "6.0.2-team.1"
+    },
+    {
+      "name": "sdlc",
+      "source": "./plugins/sdlc",
+      "description": "Repo SDLC bootstrapping: the scaffolding-sdlc skill wires lint/test/e2e/security gates, Dependabot, PR-status labels, pre-commit + commit-doc hooks, and Claude PR automation onto a repo.",
+      "category": "development",
+      "version": "0.1.0"
     }
   ]
 }

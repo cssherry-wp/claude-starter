@@ -1,0 +1,9 @@
+{
+  "name": "sdlc",
+  "version": "0.1.0",
+  "description": "Repo SDLC bootstrapping: scaffolding-sdlc skill wires lint, tests, Playwright e2e, security scanning, Dependabot, PR-status labels, and Claude PR automation onto new or existing repos.",
+  "author": {
+    "name": "Sherry Zhou",
+    "email": "szhou@wp-labs.ai"
+  }
+}
