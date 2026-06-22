@@ -16,7 +16,8 @@
 - Doc directory convention is `docs/` (plural); doc/spec/plan files are named `YYYY-MM-DD-HHmm-<topic>.md`.
 - CodeQL is excluded from the gate list; SAST = Semgrep (deterministic) + Claude `/security-review` (semantic).
 - `claude-comment-triage.yml` hardcodes the marketplace `https://github.com/cssherry-wp/claude-starter.git` with plugin `github-pr-review@claude-starter`.
-- Labels managed: `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`, `dependencies`, `security`.
+- Labels managed: `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`, `dependencies`, `security`, `needs-rebase`.
+- **Adapt, don't impose.** On an existing repo the skill detects and conforms to the repo's actual conventions — package manager (pip vs uv), config-file style (standalone `ruff.toml`/`pytest.ini` vs `[tool.*]` in `pyproject.toml`), **project subdirectory** (manifests under `app/`, `app/frontend/`, etc. rather than the repo root), existing frontend linter (ESLint/Prettier vs biome), and existing Makefile target names. It imposes its own templates only on a greenfield repo with no such conventions.
 - Claude workflows use `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
 - Autofix coordination: triage commits are prefixed `[autofix]` and signed `<!-- claude-autofix -->`; `code-review.yml` skips `[autofix]` commits.
 - Idempotency: never overwrite existing files silently (detect → diff → ask → merge); all `gh` label ops are check-then-create.
@@ -208,7 +209,7 @@ EOF
 
 ```bash
 grep -c 'gh label create' plugins/sdlc/skills/scaffolding-sdlc/scripts/ensure-labels.sh
-# Expected after impl: 7
+# Expected after impl: 8
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -237,11 +238,12 @@ ensure "question"          "d876e3" "Needs a human decision (set by comment tria
 ensure "no-automation"     "ededed" "Opt out of Claude comment-triage auto-fix on this PR"
 ensure "dependencies"      "0366d6" "Dependency updates (Dependabot)"
 ensure "security"          "b60205" "Security finding or security-related change"
+ensure "needs-rebase"      "e99695" "PR is behind main and auto-rebase hit conflicts"
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run Step 1 (expect `7`). Run `shellcheck plugins/sdlc/skills/scaffolding-sdlc/scripts/ensure-labels.sh` (no errors). Run `bash -n` on it. (No live `gh` call in tests — that requires a real repo; the SKILL.md runs it at scaffold time.)
+Run Step 1 (expect `8`). Run `shellcheck plugins/sdlc/skills/scaffolding-sdlc/scripts/ensure-labels.sh` (no errors). Run `bash -n` on it. (No live `gh` call in tests — that requires a real repo; the SKILL.md runs it at scaffold time.)
 
 - [ ] **Step 5: Commit**
 
@@ -1109,25 +1111,28 @@ EOF
 
 ---
 
-### Task 10: Claude workflows + PR-status labels
+### Task 10: Event-driven workflows (Claude automation, PR-status labels, PR rebase)
 
 **Files:**
 - Create: `.../templates/github/workflows/code-review.yml`
 - Create: `.../templates/github/workflows/claude.yml`
 - Create: `.../templates/github/workflows/claude-comment-triage.yml`
 - Create: `.../templates/github/workflows/pr-status-labels.yml`
+- Create: `.../templates/github/workflows/pr-rebase.yml`
 
 **Interfaces:**
-- Produces: the four event-driven automation workflows. `code-review.yml`, `claude.yml`, and `claude-comment-triage.yml` are copied from the translation `comment-triage-workflow` branch with the `no-automation` label substitution; `pr-status-labels.yml` is net-new.
+- Produces: the event-driven automation workflows. `code-review.yml`, `claude.yml`, and `claude-comment-triage.yml` are copied from the translation `comment-triage-workflow` branch with the `no-automation` label substitution; `pr-status-labels.yml` and `pr-rebase.yml` are net-new.
+- `pr-rebase.yml` keeps open PRs current: on every push to `main` (and via manual dispatch) it rebases each behind, same-repo, non-opted-out PR branch onto `main` and force-pushes with lease; on conflicts it aborts, adds `needs-rebase`, and comments.
 
 - [ ] **Step 1: Write the failing test**
 
 ```bash
 W=plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows
-for f in code-review.yml claude.yml claude-comment-triage.yml pr-status-labels.yml; do test -f "$W/$f" || echo "MISSING $f"; done
-actionlint "$W/code-review.yml" "$W/claude.yml" "$W/claude-comment-triage.yml" "$W/pr-status-labels.yml"
+for f in code-review.yml claude.yml claude-comment-triage.yml pr-status-labels.yml pr-rebase.yml; do test -f "$W/$f" || echo "MISSING $f"; done
+actionlint "$W/code-review.yml" "$W/claude.yml" "$W/claude-comment-triage.yml" "$W/pr-status-labels.yml" "$W/pr-rebase.yml"
 grep -q 'cssherry-wp/claude-starter' "$W/claude-comment-triage.yml"
 grep -q 'no-automation' "$W/claude-comment-triage.yml" && ! grep -q 'do-not-respond' "$W/claude-comment-triage.yml"
+grep -q 'force-with-lease' "$W/pr-rebase.yml" && grep -q 'needs-rebase' "$W/pr-rebase.yml"
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -1189,28 +1194,93 @@ jobs:
           fi
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [ ] **Step 6: Create `pr-rebase.yml`** (net-new):
 
-Run Step 1. Expected: no MISSING; `actionlint` clean on all four; `cssherry-wp/claude-starter` present; `no-automation` present and `do-not-respond` absent in the triage workflow.
+```yaml
+name: PR Rebase
 
-- [ ] **Step 7: Commit**
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rebase behind PRs onto main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          # Open, same-repo PRs based on main, not opted out via no-automation.
+          gh pr list --state open --base main \
+            --json number,headRefName,isCrossRepository,labels \
+            --jq '.[] | select(.isCrossRepository==false)
+                       | select((.labels // []) | any(.name=="no-automation") | not)
+                       | [.number, .headRefName] | @tsv' \
+          | while IFS="$(printf '\t')" read -r NUM BRANCH; do
+              echo "::group::PR #$NUM ($BRANCH)"
+              git fetch origin "$BRANCH"
+              if git merge-base --is-ancestor origin/main "origin/$BRANCH"; then
+                echo "#$NUM already contains main; skipping."
+                gh pr edit "$NUM" --remove-label needs-rebase || true
+                echo "::endgroup::"; continue
+              fi
+              git checkout -B "$BRANCH" "origin/$BRANCH"
+              if git rebase origin/main; then
+                if git push --force-with-lease origin "$BRANCH"; then
+                  gh pr edit "$NUM" --remove-label needs-rebase || true
+                  echo "rebased #$NUM"
+                else
+                  echo "push rejected (branch moved) for #$NUM"
+                fi
+              else
+                git rebase --abort
+                gh pr edit "$NUM" --add-label needs-rebase || true
+                gh pr comment "$NUM" --body "Automatic rebase onto \`main\` hit conflicts; please rebase manually. <!-- pr-rebase -->"
+              fi
+              echo "::endgroup::"
+            done
+```
+
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run Step 1. Expected: no MISSING; `actionlint` clean on all five; `cssherry-wp/claude-starter` present; `no-automation` present and `do-not-respond` absent in the triage workflow; `force-with-lease` and `needs-rebase` present in `pr-rebase.yml`.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/code-review.yml \
         plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/claude.yml \
         plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/claude-comment-triage.yml \
-        plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/pr-status-labels.yml
+        plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/pr-status-labels.yml \
+        plugins/sdlc/skills/scaffolding-sdlc/templates/github/workflows/pr-rebase.yml
 git commit -m "$(cat <<'EOF'
-Add Claude automation + PR-status-label workflows
+Add event-driven workflows (Claude, PR-status, PR-rebase)
 
 Logic: Fuse the mature comment-triage-workflow branch workflows (code+security
-review, @claude responder, autonomous comment triage) and add a net-new
-pr-status-labels workflow keyed off CI workflow_run.
+review, @claude responder, autonomous comment triage); add net-new
+pr-status-labels (keyed off CI workflow_run) and pr-rebase (auto-rebase behind
+PRs onto main, label+comment on conflict).
 
 Caveats/assumptions:
 - Marketplace hardcoded to cssherry-wp/claude-starter per spec.
 - do-not-respond renamed to no-automation throughout.
 - pr-status-labels resolves PR via head_sha; single-PR-per-sha assumption.
+- pr-rebase only touches same-repo branches (cannot push to forks) and skips
+  no-automation PRs; pushes use the default GITHUB_TOKEN, which does NOT
+  re-trigger CI on the rebased commit (use a PAT/app token if CI must re-run).
 EOF
 )"
 ```
@@ -1347,10 +1417,16 @@ Run these steps in order. The template root is this skill's `templates/`
 directory; copy from there.
 
 1. **Detect & report.** Run `scripts/detect-stack.sh` in the target repo. Also
-   inspect existing `.github/`, `Makefile`, hooks, and labels (`gh label list`).
-   Report to the user what already exists vs. what is missing. **Never overwrite
+   inspect existing `.github/`, `Makefile`, hooks, and labels (`gh label list`),
+   and note the repo's conventions: package manager (pip vs uv), config-file
+   style (standalone `ruff.toml`/`pytest.ini` vs `[tool.*]`), project
+   subdirectory (manifests under `app/`, `app/frontend/`, etc.), and existing
+   frontend linter. Report what exists vs. what is missing. **Never overwrite
    existing files silently** — for any file that already exists, show the diff
-   and ask before changing it.
+   and ask before changing it. **Adapt, don't impose:** where the repo already
+   has a convention, conform to it (e.g. add `pip-audit` for a pip repo, wire CI
+   `working-directory` to the project subdir, call the repo's existing `make`
+   targets) instead of forcing the template's defaults.
 
 2. **Choose stack & scanners.** Present the detected stack and the menu —
    **TypeScript**, **Python**, or **Fullstack (Python + React)** — with brief
@@ -1377,13 +1453,17 @@ directory; copy from there.
    replace it). Docs land in `docs/`.
 
 6. **GitHub Actions.** Copy `templates/github/workflows/*.yml` →
-   `.github/workflows/` and `templates/github/dependabot.yml` →
-   `.github/dependabot.yml`. Skip any workflow the user opted out of (e.g. no
-   Semgrep → leave the `semgrep` job out of `security.yml`).
+   `.github/workflows/` (gates `ci.yml`/`security.yml`, the Claude automation
+   trio, `pr-status-labels.yml`, and `pr-rebase.yml`) and
+   `templates/github/dependabot.yml` → `.github/dependabot.yml`. Skip any
+   workflow the user opted out of (e.g. no Semgrep → leave the `semgrep` job out
+   of `security.yml`). `pr-rebase.yml` auto-rebases behind PRs onto `main` and
+   force-pushes with lease; mention that pushes use the default `GITHUB_TOKEN`
+   (which does not re-trigger CI on the rebased commit).
 
 7. **Ensure labels.** Run `scripts/ensure-labels.sh` (idempotent). Creates
    `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`,
-   `dependencies`, `security`.
+   `dependencies`, `security`, `needs-rebase`.
 
 8. **Verify & summarize.** Run `make check` and `make test` locally and report
    results. Summarize what was created/changed and list manual follow-ups: add
@@ -1561,7 +1641,9 @@ REQUIRED SUB-SKILL: Use superpowers:finishing-a-development-branch to choose mer
 - ci.yml gates (lint/typecheck/unit/playwright) → Task 9.
 - security.yml (gitleaks/dep-audit/Semgrep) + Dependabot → Task 9.
 - code-review.yml (Claude code+security), claude.yml, claude-comment-triage.yml → Task 10.
-- pr-status-labels.yml + label set incl. `no-automation` → Tasks 3, 10.
+- pr-status-labels.yml + label set incl. `no-automation`, `needs-rebase` → Tasks 3, 10.
+- pr-rebase.yml (auto-rebase behind PRs onto main; conflict → `needs-rebase` + comment) → Task 10.
+- Adapt-don't-impose (pip/uv, config style, project subdir, FE linter, existing Makefile targets) → Tasks 1-constraints + 12 (Detect & report / runtime adaptation).
 - `docs/` convention, no-clobber, idempotent labels → Tasks 8, 12, 3.
 - Marketplace hardcoded `cssherry-wp/claude-starter` → Task 10.
 - CodeQL excluded; both security layers → Tasks 9, 11.
@@ -1572,4 +1654,4 @@ No gaps found.
 
 **Placeholder scan:** No TBD/TODO. Verbatim-copy steps give exact source paths + post-copy assertions; net-new files have full content.
 
-**Type consistency:** Makefile target names (`check`, `typecheck`, `test`, `test-python`, `test-e2e`, `install-hooks`, `lint`) are consistent across Tasks 4/5/6 and referenced identically in `ci.yml` (Task 9). Label names match across Tasks 3, 10, 12. Hook install path `.sdlc-hooks/pre-commit` consistent across Tasks 4/5/6/12.
+**Type consistency:** Makefile target names (`check`, `typecheck`, `test`, `test-python`, `test-e2e`, `install-hooks`, `lint`) are consistent across Tasks 4/5/6 and referenced identically in `ci.yml` (Task 9). The 8 managed label names match across Tasks 3, 10, 12 (including `needs-rebase`, written by `pr-rebase.yml` and created by `ensure-labels.sh`). Hook install path `.sdlc-hooks/pre-commit` consistent across Tasks 4/5/6/12. `no-automation` is the single opt-out label used by both `claude-comment-triage.yml` and `pr-rebase.yml`.
