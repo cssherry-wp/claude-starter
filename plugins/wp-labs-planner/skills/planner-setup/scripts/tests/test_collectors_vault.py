@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from datetime import date
 from pathlib import Path
 
 from planner.collectors.vault import list_projects, open_tasks, recent_notes
-from planner.config import load_config
+from planner.config import Config, load_config
 from planner.obsidian import FilesystemVault
 
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
@@ -23,7 +24,7 @@ def build_vault(tmp_path: Path) -> FilesystemVault:
     return FilesystemVault(str(tmp_path))
 
 
-def cfg_for(tmp_path: Path):
+def cfg_for(tmp_path: Path) -> Config:
     cfg = load_config(str(FIXTURE))
     cfg.vault.path = str(tmp_path)
     return cfg
@@ -48,3 +49,21 @@ def test_recent_notes_includes_yesterday(tmp_path: Path) -> None:
     v = build_vault(tmp_path)
     notes = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path=None)
     assert any(n.path.endswith("2026-06-22.md") for n in notes)
+
+
+def test_recent_notes_includes_recently_modified_no_git(tmp_path: Path) -> None:
+    v = build_vault(tmp_path)
+    cfg = cfg_for(tmp_path)
+    inbox = tmp_path / "00-Inbox"
+    inbox.mkdir(exist_ok=True)
+    note = inbox / "x.md"
+    note.write_text("# Recent\n")
+    os.utime(note, None)  # set mtime to now
+    notes = recent_notes(v, cfg, date.today(), repo_path=None)
+    assert any("00-Inbox/x.md" in n.path for n in notes)
+
+
+def test_recent_notes_nonexistent_repo_does_not_raise(tmp_path: Path) -> None:
+    v = build_vault(tmp_path)
+    result = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path="/nonexistent/repo")
+    assert isinstance(result, list)

@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from planner.config import Config
 from planner.obsidian import Vault
@@ -74,7 +75,7 @@ def _iter_markdown(vault: Vault, cfg: Config, dirpath: str) -> list[str]:
     for entry in vault.list_dir(dirpath):
         rel = f"{dirpath}/{entry.rstrip('/')}"
         if entry.endswith("/"):
-            if entry.rstrip("/") == cfg.vault.templates_dir:
+            if entry.rstrip("/") == Path(cfg.vault.templates_dir).name:
                 continue
             out.extend(_iter_markdown(vault, cfg, rel))
         elif entry.endswith(".md"):
@@ -107,6 +108,29 @@ def open_tasks(vault: Vault, cfg: Config) -> list[OpenTask]:
                     )
                 )
     return tasks
+
+
+def _mtime_recent(vault: Vault, cfg: Config, today: date, days: int) -> list[str]:
+    """Vault markdown paths whose mtime is within the last `days` days.
+
+    Args:
+        vault: The vault to read from.
+        cfg: Configuration used by _iter_markdown for templates exclusion.
+        today: The reference date for recency calculation.
+        days: Number of days to look back.
+
+    Returns:
+        List of markdown paths modified within the last `days` days.
+    """
+    cutoff = today - timedelta(days=days)
+    results: list[str] = []
+    for path in _iter_markdown(vault, cfg, "."):
+        mtime = vault.stat_mtime(path)
+        if mtime == 0.0:
+            continue
+        if datetime.fromtimestamp(mtime).date() >= cutoff:
+            results.append(path)
+    return results
 
 
 def _git_recent(repo_path: str, days: int) -> set[str]:
@@ -160,10 +184,13 @@ def recent_notes(
         p = f"{cfg.vault.daily_output_dir}/{d.isoformat()}.md"
         if vault.exists(p):
             paths.append(p)
-    git_paths = _git_recent(repo_path, days=2) if repo_path else set()
-    for gp in git_paths:
-        if gp.endswith(".md") and vault.exists(gp) and gp not in paths:
-            paths.append(gp)
+    if repo_path:
+        recent_b: set[str] | list[str] = _git_recent(repo_path, days=2)
+    else:
+        recent_b = _mtime_recent(vault, cfg, today, days=2)
+    for bp in recent_b:
+        if bp.endswith(".md") and vault.exists(bp) and bp not in paths:
+            paths.append(bp)
     notes: list[RecentNote] = []
     for p in paths:
         notes.append(
