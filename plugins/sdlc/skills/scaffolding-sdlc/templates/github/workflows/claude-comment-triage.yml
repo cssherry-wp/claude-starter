@@ -84,7 +84,8 @@ jobs:
             specific code (naming/style fix, missing null/edge-case check, obvious bug fix, a
             concretely described test to add, applying a specific suggestion, doc/typo fix). Then:
               1. Make ONLY the change the comment asks for. Do not touch unrelated files.
-              2. Run the project checks:  npm test   and   npx biome check .
+              2. Run the project checks:  make check   and   make test   (run `make install`
+                 first if dependencies are not present). If `make` is unavailable, skip to RESPOND.
               3. If BOTH pass: stage ONLY the files you changed (not `git add -A`), commit with a
                  subject that begins exactly "[autofix] ", and push to the current PR branch.
                  Then post a reply summarizing the change and resolve the review thread.
@@ -122,4 +123,4 @@ jobs:
                 github-pr-review plugin's inline-reply / thread-resolution tools (a review whose body
                 lacks the marker would re-trigger this workflow).
           claude_args: |
-            --allowedTools "Read,Edit,Write,Bash(git:*),Bash(gh:*),Bash(npm:*),Bash(npx:*)"
+            --allowedTools "Read,Edit,Write,Bash(make install:*),Bash(make check:*),Bash(make test:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr checkout:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh api:*)"
