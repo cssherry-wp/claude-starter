@@ -30,7 +30,6 @@ git show --name-only --format='' HEAD 2>/dev/null \
 
 SUBJECT=$(git log -1 --format='%s')
 BODY=$(git log -1 --format='%b')
-HASH=$(git log -1 --format='%h')
 DATE=$(date +%Y-%m-%d-%H%M)
 SLUG=$(printf '%s' "$SUBJECT" \
   | tr '[:upper:]' '[:lower:]' \
@@ -53,11 +52,7 @@ DOC="docs/${DATE}_${SLUG}.md"
 
 {
   printf '# %s\n\n' "$SUBJECT"
-  # The backticks below are literal Markdown (they render the hash as inline
-  # code), NOT shell command substitution. The values are substituted by
-  # printf from the double-quoted args, so single quotes here are correct.
-  # shellcheck disable=SC2016
-  printf '**Date**: %s  \n**Commit**: `%s`\n\n' "$DATE" "$HASH"
+  printf '**Date**: %s\n\n' "$DATE"
   [ -n "$BODY" ] && printf '%s\n' "$BODY"
   if [ -n "$SESSION_SUMMARY" ]; then
     printf '\n## Session Summary\n\n%s\n' "$SESSION_SUMMARY"

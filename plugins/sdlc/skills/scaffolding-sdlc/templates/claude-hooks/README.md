@@ -11,5 +11,3 @@ commit. Git never invokes it; it only fires when Claude commits.
 **Behavior:** after Claude commits, generates `docs/YYYY-MM-DD-HHmm_<slug>.md`
 from the commit subject/body (+ optional session summary) and amends it into the
 commit. Skips doc-only commits and commits that already contain a generated doc.
-
-**Known quirk:** the generated doc records the pre-amend short hash.
