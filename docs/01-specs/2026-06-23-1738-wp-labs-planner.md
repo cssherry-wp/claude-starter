@@ -17,9 +17,10 @@ Obsidian notes:
   produces a todo list grouped by project, with urgent items pinned to the top of
   each group.
 
-Collectors gather raw text mechanically; headless Claude Code (`claude -p`) does the
-summarizing, classifying, grouping, and priority assignment. Output is
-Obsidian-flavored Markdown written into the user's vault.
+Collectors gather raw text mechanically; a configurable LLM backend — headless Claude
+Code (`claude -p`) by default, or a local model (e.g. Ollama) — does the summarizing,
+classifying, grouping, and priority assignment. Output is Obsidian-flavored Markdown
+written into the user's vault.
 
 The plugin's `planner-setup` skill is the user-facing entry point: it checks whether
 the planner is already installed/configured/scheduled and, if not, walks the user
@@ -40,7 +41,9 @@ through bootstrapping it.
 - The planner *creates* the daily and weekly Templater templates — installing the
   provided daily template and authoring a matching weekly template — but never creates
   project notes. Project notes are only appended to / modified.
-- No separate Claude API key — summarization runs through `claude -p`.
+- No separate Claude API key — summarization runs through a configurable LLM backend:
+  headless `claude -p` by default, or a **local model** (e.g. Ollama) for fully offline
+  runs. The backend is pluggable; collectors and rendering are backend-agnostic.
 
 ## 3. Inputs
 
@@ -49,7 +52,7 @@ through bootstrapping it.
 | Gmail (`<user>+planner@<domain>`) | Gmail API, read-only | (a) accomplishment notes for the week; (b) upcoming-call detection from invite emails |
 | Google Doc | Google Docs API, read-only (same OAuth as Gmail) | rolling todos |
 | OneNote `.one` files | local files → pluggable converter command | learnings + follow-up actions |
-| Obsidian vault | local Markdown | rolling personal todos, follow-ups, project notes, generated output |
+| Obsidian vault | local Markdown (+ git history if the vault is a repo) | rolling personal todos, follow-ups, project notes, recently-touched notes for context, generated output |
 
 Auth: a single Google OAuth desktop-app credential covers Gmail (read-only) and Docs
 (read-only). First run opens a browser consent flow; the token is cached to a
@@ -99,8 +102,8 @@ plugins/wp-labs-planner/
           gmail.py                 # accomplishment notes + upcoming calls
           gdoc.py                  # todos from the Google Doc
           onenote.py               # .one -> markdown via pluggable converter
-          vault.py                 # read projects, open tasks, state files
-        synthesis.py               # wraps `claude -p` calls + prompt assembly
+          vault.py                 # projects, open tasks, state files, recent notes (mtime + git)
+        synthesis.py               # prompt assembly + pluggable LLM backend (claude -p | local model)
         render_daily.py            # port of the Templater daily template + injected sections
         render_weekly.py           # weekly note (Dataview + static snapshot) + project ## Status updates
         daily.py                   # entry point:  python -m planner.daily
@@ -116,7 +119,7 @@ plugins/wp-labs-planner/
 
 Each collector is independently testable and returns **raw Markdown text**. The two
 entry scripts are thin: gather → synthesize → render. Synthesis is the only component
-that shells out to `claude`.
+that calls the LLM backend (shells out to `claude -p` or a local model).
 
 ### 5.1 `planner-setup` skill
 
@@ -128,17 +131,23 @@ missing:
 3. Google OAuth: `credentials.json` present, `token.json` cached (runs the consent
    flow if not).
 4. OneNote converter installed and on PATH.
-5. `Daily.md` and `Weekly.md` templates copied into the vault's templates folder.
-6. Schedule: launchd jobs installed (optional) — daily, plus weekly on Fridays.
-7. A recent daily note exists (sanity signal that runs are happening).
+5. LLM backend reachable: `claude` on PATH, or (for `local`) the model server/command
+   responds.
+6. `Daily.md` and `Weekly.md` templates copied into the vault's templates folder.
+7. Schedule: launchd jobs installed (optional) — daily, plus weekly on Fridays.
+8. A recent daily note exists (sanity signal that runs are happening).
 
-The check is idempotent and safe to re-run; "is it running?" = items 1–6 satisfied and
+The check is idempotent and safe to re-run; "is it running?" = items 1–7 satisfied and
 a recent daily note present.
 
 ## 6. Behavior
 
 ### Daily (`python -m planner.daily`)
-1. Read vault open tasks and state files.
+1. Read vault open tasks and state files, plus **recently-touched notes for context**
+   (the minimum set): the past week's notes, yesterday's note, and any note modified the
+   day before. Recency is detected by filesystem mtime; if the vault is a git repo, the
+   collector also consults git history (e.g. `git log --since`) to confirm a note was
+   genuinely just modified and to ignore incidental touch/sync changes.
 2. Gmail: accomplishments = messages to `<user>+planner@<domain>` since the start of
    the current ISO week, excluding invites; upcoming calls = messages carrying
    calendar invites (`.ics`) or detected as meeting invites, future-dated.
@@ -165,6 +174,8 @@ a recent daily note present.
    open vault tasks (excluding `zz-Templates`) with note/heading context.
 2. Synthesis (`prompts/weekly_synthesis.md`):
    - a one-line dated **status** per project (progress this week + what's next);
+   - a dated **timeline assessment** per project (how the project is tracking against
+     its `## Timeline` — on track / slipping / blocked, with a brief rationale);
    - a static **grouped-by-project** todo snapshot (via the project list +
      `#project/<Name>` tags) with urgent items (🔺⏫) pinned to the top of each group.
 3. Render `<weekly_dir>/YYYY-MM-DD-week-overview.md` (date = generation/Friday day) from
@@ -175,9 +186,10 @@ a recent daily note present.
      grouped-by-project todo list frozen at Friday + the per-project status lines — so
      the note is a permanent record alongside the live view. Each group is headed by a
      `[[00-<Name>|<Name>]]` link; frontmatter tagged `Weekly`.
-   - For each project, update its `## Status` section in place: insert the dated status
-     line newest-first, preserving prior entries; create the section if absent. Back up
-     the project file before writing.
+   - For each project's `00-<Name>.md`, update two sections in place, newest-first and
+     preserving prior entries (creating a section if absent): `## Status` gets the dated
+     status line, and `## Timeline` gets the dated timeline assessment. Back up the
+     project file before writing.
 
 ## 7. Config (`config.yaml` — paths/IDs only, no secrets)
 
@@ -185,7 +197,8 @@ a recent daily note present.
 - `onenote`: list of `.one` paths, `converter_command`
 - `vault`: vault path, `templates_dir`, `projects_dir` (`00-InProgress`),
   `daily_output_dir`, `weekly_output_dir`, optional rolling todo/follow-up file paths
-- `claude`: command (default `claude`) and any flags
+- `llm`: `backend` (`claude` | `local`); for `claude`, the command (default `claude`)
+  and flags; for `local`, the model name + endpoint/command (e.g. Ollama model + host)
 
 ## 8. OneNote conversion risk
 
@@ -199,8 +212,8 @@ logs a warning and the note shows a `⚠️ OneNote unavailable` placeholder.
 
 - Collectors are isolated: a failing/empty source degrades to a placeholder section;
   the run still produces a note.
-- If `claude -p` synthesis fails, the raw collected material is written under a banner
-  so nothing is lost.
+- If the LLM backend fails (whichever is configured), the raw collected material is
+  written under a banner so nothing is lost.
 - Config is validated up front with actionable messages; auth failures print re-auth
   instructions.
 - Vault writes (project `## Status`) back up the target file first.
@@ -209,17 +222,21 @@ logs a warning and the note shows a `⚠️ OneNote unavailable` placeholder.
 
 Pytest mirroring module structure, with fixtures: sample Gmail API JSON, a
 pre-converted OneNote fixture, sample Google Doc text, sample vault project notes and
-task files. External APIs and the `claude` subprocess are mocked. Coverage includes the
-happy path, a failing/empty source per collector, daily render correctness (resolved
-tags, nav links, verbatim Dataview blocks, injected sections, priority emojis), and
-weekly correctness (grouped-todo ordering, dated `## Status` insertion, backup).
+task files. External APIs and the LLM backend (`claude -p` / local model) are mocked.
+Coverage includes the happy path, a failing/empty source per collector, recent-note
+selection (mtime + git-history fallback), daily render correctness (resolved tags, nav
+links, verbatim Dataview blocks, injected sections, priority emojis), and weekly
+correctness (static grouped-todo ordering, dated `## Status` and `## Timeline`
+insertion, backup).
 
 ## 11. README / setup walkthrough
 
 Bundled with the plugin and surfaced by `planner-setup`: Python/venv/deps → Google
-Cloud OAuth client (Gmail + Docs scopes) → OneNote converter install → `config.yaml` →
-vault paths and template install → running each script manually → optional macOS
-`launchd` schedule (daily + Friday weekly).
+Cloud OAuth client (Gmail + Docs scopes) → OneNote converter install → **LLM backend
+setup** (default `claude -p`; or a local model — installing Ollama, pulling a model,
+pointing `llm.backend: local` at it for fully offline runs) → `config.yaml` → vault
+paths and template install → running each script manually → optional macOS `launchd`
+schedule (daily + Friday weekly).
 
 ## 12. Open items for planning
 
@@ -227,3 +244,6 @@ vault paths and template install → running each script manually → optional m
 - Exact Gmail query/heuristics distinguishing accomplishment emails from invite emails.
 - Whether `launchd` install is offered interactively by `planner-setup` or documented
   only.
+- Recommended local model + runtime (e.g. Ollama model choice) and the prompt/output
+  contract that keeps synthesis results consistent across the `claude` and `local`
+  backends.
