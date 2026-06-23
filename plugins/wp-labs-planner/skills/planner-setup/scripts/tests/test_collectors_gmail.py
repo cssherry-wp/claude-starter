@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from planner.collectors.gmail import (
-    CalendarEvent, _event_is_future, fetch_accomplishments, fetch_calls, parse_ics,
+    CalendarEvent, _event_is_future, fetch_accomplishments, parse_ics,
 )
 
 
