@@ -172,19 +172,23 @@ This replaces the third-party `mcp-obsidian` (stdio) — see "Why the native ser
   authored as `### <topic> #project/<Name>` blocks (matching §6). A heading-relative
   patch under `## Notes` succeeded and was restored byte-for-byte — the planner's core
   write op.
-- **Periodic-note tool, tested (2026-06-23).** `periodic_note_get_path(daily)` returns
-  `zz-Sherry_Daily/2026-06-23.md` (daily notes enabled) — the planner uses it to locate
-  today's note. `periodic_note_get_path(weekly)` errors *"Specified period is not
-  enabled"* (weekly notes off in Periodic Notes), so the weekly note must NOT depend on
-  it — the planner writes `weekly_output_dir/YYYY-MM-DD-week-overview.md` directly. There
-  is **no native "list recent periodic notes" tool**, so "last week's notes" discovery
-  lists `zz-Sherry_Daily/` and selects by date (the third-party
-  `obsidian_get_recent_periodic_notes` is moot — route absent in v4.1.3).
-- **Template expansion still needs Obsidian.** No MCP tool runs Templater directly, so
-  resolving the Daily template uses the `obsidian://open?vault=<vault>&file=zz-Templates
-  %2FDaily` URI (or a static Python port of the template when Obsidian is closed, e.g.
-  unattended runs). `command_execute` may be able to trigger a Templater command instead
-  — to be evaluated in planning (§12).
+- **Daily-note creation uses the core *Daily Notes* plugin (not Periodic Notes).**
+  Tested (2026-06-23): `periodic_note_get_path(daily)` reads the Daily Notes config and
+  returns `zz-Sherry_Daily/2026-06-23.md` — the planner uses it to locate today's note.
+  `periodic_note_get_path(weekly)` errors *"Specified period is not enabled"*, so the
+  weekly note must NOT depend on it — the planner writes
+  `weekly_output_dir/YYYY-MM-DD-week-overview.md` directly. There is **no native "list
+  recent periodic notes" tool**, so "last week's notes" discovery lists `zz-Sherry_Daily/`
+  and selects by date.
+- **Template expansion via `command_execute` (no `obsidian://` URI).** The planner calls
+  `command_execute("daily-notes")` (verified → `OK`) to have Obsidian create today's note
+  through the core Daily Notes plugin; with Templater installed and "trigger on new file
+  creation" enabled, the `zz-Templates/Daily` template is processed natively. Then
+  `vault_patch` injects under `## Notes`. *Unverified last-mile:* the test ran against an
+  existing note (open-only); confirm a freshly-created note is fully Templater-expanded
+  when triggered headlessly (test on a date with no note) — §12. Fallbacks if not:
+  `templater-obsidian:replace-in-file-templater` via `command_execute`, or a static
+  Python port of the template for unattended runs when Obsidian is closed.
 
 `config.yaml` selects the I/O mode (`obsidian.mode: mcp | filesystem`); collectors and
 renderers call `obsidian.py` and stay agnostic to which is active.
@@ -347,5 +351,7 @@ the MCP entirely.
 - TLS trust for Claude Code's HTTP MCP client to the self-signed `/mcp/` endpoint
   (`NODE_EXTRA_CA_CERTS` vs enabling the plugin's plain-HTTP port) — pick the setup the
   `planner-setup` skill automates.
-- Whether `command_execute` can trigger Templater daily-template expansion (removing the
-  `obsidian://` URI dependency), vs the static Python-port fallback.
+- `command_execute("daily-notes")` works (returns OK); confirm a *freshly created* daily
+  note is fully Templater-expanded when triggered headlessly via REST (depends on
+  Templater's "trigger on new file creation"). If not, fall back to
+  `templater-obsidian:replace-in-file-templater` or the static Python port.
