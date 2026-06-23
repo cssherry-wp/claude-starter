@@ -251,6 +251,12 @@ reloads; the planner tooling drives the server directly regardless.
    The user's rolling personal todos and follow-ups already live in the vault as tasks,
    so the template's `## TODO` Dataview surfaces them urgent-first automatically; the
    script only adds *new* items. Output file: `<daily_dir>/YYYY-MM-DD.md`.
+7. **Commit the changes.** When the vault is a git repo and `vault.git_commit` is enabled
+   (default true), stage only the files this run created/modified (the daily note — never
+   `git add -A`, to avoid sweeping up unrelated work-in-progress) and commit with a
+   descriptive message, e.g. `planner: daily 2026-06-23`. This gives an audit trail and
+   feeds the git-history recency check (§step 1). A clean run with no changes is a no-op;
+   a failed commit logs a warning but does not fail the run.
 
 ### Weekly (`python -m planner.weekly`) — run on the Friday before the week
 1. Enumerate `00-InProgress/<Name>/00-<Name>.md`; gather the week's sources and all
@@ -273,6 +279,9 @@ reloads; the planner tooling drives the server directly regardless.
      preserving prior entries (creating a section if absent): `## Status` gets the dated
      status line, and `## Timeline` gets the dated timeline assessment. Back up the
      project file before writing.
+4. **Commit the changes** (as in the daily flow, §step 7): stage only the files this run
+   touched — the weekly overview + each updated `00-<Name>.md` — and commit, e.g.
+   `planner: weekly overview 2026-06-26`.
 
 ## 7. Config (`config.yaml` — paths/IDs only, no secrets)
 
@@ -280,7 +289,8 @@ reloads; the planner tooling drives the server directly regardless.
 - `onenote`: list of `.one` paths, `converter_command`
 - `vault`: vault path, `vault_name` (for the `obsidian://` URI, e.g. `szhou`),
   `templates_dir`, `projects_dir` (`00-InProgress`), `daily_output_dir`,
-  `weekly_output_dir`, optional rolling todo/follow-up file paths
+  `weekly_output_dir`, optional rolling todo/follow-up file paths, `git_commit`
+  (default true — commit the run's changes when the vault is a git repo)
 - `obsidian`: `mode` (`mcp` | `filesystem`) for note I/O; for `mcp`, the Local REST API
   host/port (token via the `OBSIDIAN_API_KEY` env/MCP config, never in this file)
 - `llm`: `backend` (`claude` | `local`); for `claude`, the command (default `claude`)
@@ -313,9 +323,10 @@ Coverage includes the happy path, a failing/empty source per collector, recent-n
 selection (mtime + git-history fallback), daily render correctness (resolved tags, nav
 links, verbatim Dataview blocks via template expansion, per-event `###` headers with
 time + `#project/<Name>` plus a nested `#### Relevant previous summary` per event,
-priority emojis), and weekly
+priority emojis), weekly
 correctness (static grouped-todo ordering, dated `## Status` and `## Timeline`
-insertion, backup).
+insertion, backup), and the git-commit step (stages only touched files, no-op on a clean
+tree, warns without failing the run when git is absent or the commit fails).
 
 ## 11. README / setup walkthrough
 
