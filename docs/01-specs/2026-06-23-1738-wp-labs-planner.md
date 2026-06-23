@@ -104,7 +104,7 @@ plugins/wp-labs-planner/
           onenote.py               # .one -> markdown via pluggable converter
           vault.py                 # projects, open tasks, state files, recent notes (mtime + git)
         synthesis.py               # prompt assembly + pluggable LLM backend (claude -p | local model)
-        render_daily.py            # port of the Templater daily template + injected sections
+        render_daily.py            # expand Obsidian Daily template (obsidian:// URI) + injected sections
         render_weekly.py           # weekly note (Dataview + static snapshot) + project ## Status updates
         daily.py                   # entry point:  python -m planner.daily
         weekly.py                  # entry point:  python -m planner.weekly
@@ -155,19 +155,29 @@ a recent daily note present.
 4. OneNote: convert each configured `.one` file → Markdown.
 5. Synthesis (`prompts/daily_synthesis.md`): produce the injected sections and assign a
    priority emoji to each new task.
-6. Render: the daily note is generated **outside** Obsidian, so `render_daily.py` ports
-   the Templater template's resolved logic — it computes the `YYYY/MM/DD` tag and
-   yesterday/tomorrow links from the note's date and emits the three Dataview blocks
-   **verbatim** (they render live in Obsidian). Under `## Notes` it injects:
-   - `### 📅 Upcoming Calls`
-   - `### ✅ This Week So Far`
-   - `### 📓 Learnings & Follow-ups`
+6. Render: `render_daily.py` **expands the real Obsidian Daily template** rather than
+   porting Templater in Python — it triggers Obsidian via the URI
+   `obsidian://open?vault=<vault>&file=zz-Templates%2FDaily` (vault name from config,
+   e.g. `szhou`) so Templater resolves the tag, nav links, and Dataview blocks natively.
+   It then injects content under `## Notes`:
+   - **One `###` header per timed calendar event**, with a bullet underneath giving the
+     event time and the `#project/<Name>` hashtag of the associated project (synthesis
+     maps each event to a project via attendees/`#<company>/<first_last>` member tags or
+     content). Untimed/all-day items are excluded.
+   - `### Relevant Previous Summaries` — pulled from the recently-touched daily/weekly
+     notes (§step 1), surfacing prior summaries relevant to today.
+   - `### ✅ This Week So Far` — synthesized accomplishments.
+   - `### 📓 Learnings & Follow-ups` — from the converted OneNote notes.
    - new **tasks** from the Google Doc and OneNote follow-ups, as checkboxes with
      priority emojis.
 
    The user's rolling personal todos and follow-ups already live in the vault as tasks,
    so the template's `## TODO` Dataview surfaces them urgent-first automatically; the
    script only adds *new* items. Output file: `<daily_dir>/YYYY-MM-DD.md`.
+
+   *Dependency:* template expansion requires Obsidian running with Templater (and the
+   URI handler) available; the exact expansion mechanism and its unattended-run
+   implications are a planning item (§12).
 
 ### Weekly (`python -m planner.weekly`) — run on the Friday before the week
 1. Enumerate `00-InProgress/<Name>/00-<Name>.md`; gather the week's sources and all
@@ -195,8 +205,9 @@ a recent daily note present.
 
 - `google`: `credentials_path`, `token_path`, `planner_address`, `gdoc_id`
 - `onenote`: list of `.one` paths, `converter_command`
-- `vault`: vault path, `templates_dir`, `projects_dir` (`00-InProgress`),
-  `daily_output_dir`, `weekly_output_dir`, optional rolling todo/follow-up file paths
+- `vault`: vault path, `vault_name` (for the `obsidian://` URI, e.g. `szhou`),
+  `templates_dir`, `projects_dir` (`00-InProgress`), `daily_output_dir`,
+  `weekly_output_dir`, optional rolling todo/follow-up file paths
 - `llm`: `backend` (`claude` | `local`); for `claude`, the command (default `claude`)
   and flags; for `local`, the model name + endpoint/command (e.g. Ollama model + host)
 
@@ -225,7 +236,8 @@ pre-converted OneNote fixture, sample Google Doc text, sample vault project note
 task files. External APIs and the LLM backend (`claude -p` / local model) are mocked.
 Coverage includes the happy path, a failing/empty source per collector, recent-note
 selection (mtime + git-history fallback), daily render correctness (resolved tags, nav
-links, verbatim Dataview blocks, injected sections, priority emojis), and weekly
+links, verbatim Dataview blocks via template expansion, per-event `###` headers with
+time + `#project/<Name>`, relevant-previous-summaries section, priority emojis), and weekly
 correctness (static grouped-todo ordering, dated `## Status` and `## Timeline`
 insertion, backup).
 
@@ -247,3 +259,6 @@ schedule (daily + Friday weekly).
 - Recommended local model + runtime (e.g. Ollama model choice) and the prompt/output
   contract that keeps synthesis results consistent across the `claude` and `local`
   backends.
+- Exact Obsidian Daily-template expansion mechanism via the `obsidian://` URI (plain
+  `open` vs Advanced URI / Templater trigger) and how it works for unattended/scheduled
+  runs that need Obsidian running.
