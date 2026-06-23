@@ -16,6 +16,7 @@ Daily & weekly Obsidian planner that aggregates Gmail (+planner alias), a Google
    ```
 
 2. **Create a Google Cloud OAuth desktop client:**
+   - Enable the **Gmail API** and **Google Docs API** in your Google Cloud project
    - Enable Gmail and Google Docs (read-only) scopes
    - Download the JSON credentials
    - Save as `credentials.json` in the scripts directory
@@ -47,7 +48,7 @@ Daily & weekly Obsidian planner that aggregates Gmail (+planner alias), a Google
      export OBSIDIAN_API_KEY=<key>
      ```
    - Trust the self-signed certificate:
-     - Download from `https://127.0.0.1:27124/obsidian-local-rest-api.crt` and save to `obsidian.cert_path` in config
+     - Download from `https://127.0.0.1:27124/obsidian-local-rest-api.crt` (default port; adjust if you changed it in the plugin settings) and save to `obsidian.cert_path` in config
      - Or set `NODE_EXTRA_CA_CERTS` for the bundled MCP server
 
 6. **Configure the planner:**
@@ -62,15 +63,17 @@ Daily & weekly Obsidian planner that aggregates Gmail (+planner alias), a Google
 
 ## Running
 
+Replace `/path/to/wp-labs-planner/skills/planner-setup` with your installed plugin path. The `scripts/` directory is the planner tool directory (contains `pyproject.toml`).
+
 **Daily planner:**
 ```bash
-cd scripts
+cd /path/to/wp-labs-planner/skills/planner-setup/scripts
 python -m planner.daily --config /path/to/config.yaml
 ```
 
 **Weekly planner (Fridays):**
 ```bash
-cd scripts
+cd /path/to/wp-labs-planner/skills/planner-setup/scripts
 python -m planner.weekly --config /path/to/config.yaml
 ```
 
@@ -82,11 +85,12 @@ Install launchd plists for automatic daily & weekly runs:
 2. Copy `scripts/templates/launchd/com.wp-labs.planner.weekly.plist` to `~/Library/LaunchAgents/`
 3. Update `/PATH/TO/scripts` and `/PATH/TO/config.yaml` in both plists
 4. Ensure your shell profile (`.zshenv`) exports `OBSIDIAN_API_KEY` for unattended runs
-5. Load the services:
+5. Load the services (macOS 13+):
    ```bash
-   launchctl load ~/Library/LaunchAgents/com.wp-labs.planner.daily.plist
-   launchctl load ~/Library/LaunchAgents/com.wp-labs.planner.weekly.plist
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.wp-labs.planner.daily.plist
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.wp-labs.planner.weekly.plist
    ```
+   To unload: `launchctl bootout gui/$(id -u)/com.wp-labs.planner.daily` and `launchctl bootout gui/$(id -u)/com.wp-labs.planner.weekly`
 
 Logs go to `/tmp/planner.daily.log` and `/tmp/planner.weekly.log`.
 

@@ -21,8 +21,8 @@ Use when the user wants to install, configure, or check the status of the wp-lab
      its API key, and `export OBSIDIAN_API_KEY=<key>` in the shell profile. Trust the
      self-signed cert (download from `https://127.0.0.1:27124/obsidian-local-rest-api.crt`
      into `obsidian.cert_path`, or set `NODE_EXTRA_CA_CERTS` for the bundled MCP server).
-   - `vault_reachable`: verify `vault.path`; copy `templates/Daily.md` and
-     `templates/Weekly.md` into `vault/<templates_dir>`.
+   - `vault_reachable`: verify `vault.path`; copy `scripts/templates/Daily.md` and
+     `scripts/templates/Weekly.md` into `vault/<templates_dir>`.
    - OneNote converter + LLM backend: see README.
 3. **Offer scheduling** (optional): install the launchd plists from
    `scripts/templates/launchd/` (daily, plus weekly on Fridays).
