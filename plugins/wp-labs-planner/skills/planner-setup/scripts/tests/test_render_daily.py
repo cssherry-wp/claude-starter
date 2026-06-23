@@ -19,9 +19,10 @@ def test_build_notes_block_has_event_and_tasks() -> None:
         "new_tasks": [{"text": "follow up", "priority": "high"}],
     }
     block = build_notes_block(synthesis)
-    assert "### Sync" in block
-    assert "15:00" in block and "#project/VIP" in block
-    assert "#### Relevant previous summary" in block
+    assert "### Sync #project/VIP" in block
+    assert "- 15:00" in block
+    assert "#### Relevant previous summary for Sync" in block
+    assert "### 📓 Learnings & Follow-ups" in block
     assert "### ✅ This Week So Far" in block
     assert "- [ ] follow up ⏫" in block
 

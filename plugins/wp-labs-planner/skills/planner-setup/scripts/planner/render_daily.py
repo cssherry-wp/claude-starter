@@ -12,11 +12,15 @@ def build_notes_block(synthesis: dict) -> str:
     """Assemble the Markdown injected under the daily note's ## Notes heading."""
     parts: list[str] = []
     for call in synthesis.get("calls", []):
-        parts.append(f"### {call.get('title', 'Event')} {call.get('project', '')}".rstrip())
-        parts.append(f"- {call.get('time', '')} {call.get('project', '')}".rstrip())
+        title = call.get("title", "Event")
+        project = call.get("project", "")
+        parts.append(f"### {title} {project}".rstrip())
+        time = call.get("time", "").strip()
+        if time:
+            parts.append(f"- {time}")
         summary = call.get("previous_summary", "").strip()
         if summary:
-            parts.append(f"#### Relevant previous summary for {call.get('title', 'event')}")
+            parts.append(f"#### Relevant previous summary for {title}")
             parts.append(f"- {summary}")
     acc = synthesis.get("accomplishments_md", "").strip()
     if acc:
