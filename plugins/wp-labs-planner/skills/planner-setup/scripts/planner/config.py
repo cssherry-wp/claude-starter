@@ -83,26 +83,27 @@ def extract_doc_id(value: str) -> str:
     return match.group(1) if match else value.strip()
 
 
-def load_config(path: str) -> Config:
-    """Parse config.yaml, apply defaults, and validate. Raises ConfigError."""
-    p = Path(os.path.expanduser(path))
-    if not p.is_file():
-        raise ConfigError(f"Config file not found: {path}")
-    raw = yaml.safe_load(p.read_text()) or {}
-    g, o = raw.get("google", {}), raw.get("onenote", {})
-    v, ob, ll = raw.get("vault", {}), raw.get("obsidian", {}), raw.get("llm", {})
-
-    google = GoogleCfg(
+def _build_google(g: dict[str, Any]) -> GoogleCfg:
+    """Validate and construct GoogleCfg from the raw google section."""
+    return GoogleCfg(
         planner_address=_require(g, "google", "planner_address"),
         credentials_path=_expand(_require(g, "google", "credentials_path")),
         token_path=_expand(_require(g, "google", "token_path")),
         gdoc_id=extract_doc_id(_require(g, "google", "gdoc_id")),
     )
-    onenote = OneNoteCfg(
+
+
+def _build_onenote(o: dict[str, Any]) -> OneNoteCfg:
+    """Validate and construct OneNoteCfg from the raw onenote section."""
+    return OneNoteCfg(
         files=[_expand(f) for f in o.get("files", [])],
         converter_command=o.get("converter_command", ""),
     )
-    vault = VaultCfg(
+
+
+def _build_vault(v: dict[str, Any]) -> VaultCfg:
+    """Validate and construct VaultCfg from the raw vault section."""
+    return VaultCfg(
         path=_expand(_require(v, "vault", "path")),
         vault_name=v.get("vault_name", ""),
         templates_dir=v.get("templates_dir", "zz-Templates"),
@@ -112,22 +113,48 @@ def load_config(path: str) -> Config:
         todo_files=v.get("todo_files", []),
         git_commit=bool(v.get("git_commit", True)),
     )
-    obsidian = ObsidianCfg(
+
+
+def _build_obsidian(ob: dict[str, Any]) -> ObsidianCfg:
+    """Validate and construct ObsidianCfg from the raw obsidian section."""
+    cfg = ObsidianCfg(
         mode=ob.get("mode", "mcp"),
         host=ob.get("host", "127.0.0.1"),
         port=int(ob.get("port", 27124)),
         cert_path=_expand(ob.get("cert_path", "")),
         api_key_env=ob.get("api_key_env", "OBSIDIAN_API_KEY"),
     )
-    if obsidian.mode not in ("mcp", "filesystem"):
+    if cfg.mode not in ("mcp", "filesystem"):
         raise ConfigError("obsidian.mode must be 'mcp' or 'filesystem'")
-    llm = LlmCfg(
+    return cfg
+
+
+def _build_llm(ll: dict[str, Any]) -> LlmCfg:
+    """Validate and construct LlmCfg from the raw llm section."""
+    cfg = LlmCfg(
         backend=ll.get("backend", "claude"),
         command=ll.get("command", "claude"),
         flags=list(ll.get("flags", ["-p"])),
         model=ll.get("model", ""),
         endpoint=ll.get("endpoint", ""),
     )
-    if llm.backend not in ("claude", "local"):
+    if cfg.backend not in ("claude", "local"):
         raise ConfigError("llm.backend must be 'claude' or 'local'")
-    return Config(google, onenote, vault, obsidian, llm)
+    return cfg
+
+
+def load_config(path: str) -> Config:
+    """Parse config.yaml, apply defaults, and validate. Raises ConfigError."""
+    p = Path(os.path.expanduser(path))
+    if not p.is_file():
+        raise ConfigError(f"Config file not found: {path}")
+    raw = yaml.safe_load(p.read_text()) or {}
+    g, o = raw.get("google", {}), raw.get("onenote", {})
+    v, ob, ll = raw.get("vault", {}), raw.get("obsidian", {}), raw.get("llm", {})
+    return Config(
+        google=_build_google(g),
+        onenote=_build_onenote(o),
+        vault=_build_vault(v),
+        obsidian=_build_obsidian(ob),
+        llm=_build_llm(ll),
+    )

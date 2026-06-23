@@ -13,6 +13,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 def test_loads_valid_config() -> None:
     cfg = load_config(str(FIXTURE))
     assert cfg.google.planner_address == "sherry+planner@example.com"
+    assert cfg.google.gdoc_id == "1AbCdEfGhIjKlMnOpQrStUvWxYz"
     assert cfg.vault.projects_dir == "00-InProgress"
     assert cfg.vault.git_commit is True
     assert cfg.obsidian.mode == "mcp"
@@ -38,6 +39,14 @@ def test_invalid_mode_raises(tmp_path: Path) -> None:
     bad = tmp_path / "c.yaml"
     bad.write_text(text)
     with pytest.raises(ConfigError, match="obsidian.mode"):
+        load_config(str(bad))
+
+
+def test_invalid_llm_backend_raises(tmp_path: Path) -> None:
+    text = FIXTURE.read_text().replace("backend: claude", "backend: telepathy")
+    bad = tmp_path / "c.yaml"
+    bad.write_text(text)
+    with pytest.raises(ConfigError, match="llm.backend"):
         load_config(str(bad))
 
 
