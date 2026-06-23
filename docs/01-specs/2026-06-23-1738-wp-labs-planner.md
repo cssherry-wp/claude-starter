@@ -35,10 +35,11 @@ through bootstrapping it.
 - Self-contained and runnable unattended (manual now, scheduler-ready).
 
 **Non-goals**
-- No calendar API: calls arrive as emails to the `+planner` alias.
+- No calendar API: calendar and email summaries arrive as emails to the `+planner` alias.
 - No Microsoft Graph / OneNote API: notebooks are local `.one` files.
-- The planner never *creates* project notes or daily templates (the user's own
-  Templater templates own creation); it only reads and appends.
+- The planner *creates* the daily and weekly Templater templates — installing the
+  provided daily template and authoring a matching weekly template — but never creates
+  project notes. Project notes are only appended to / modified.
 - No separate Claude API key — summarization runs through `claude -p`.
 
 ## 3. Inputs
@@ -59,10 +60,17 @@ project (README walkthrough).
 
 The tool conforms to the user's existing vault setup; it does not impose new ones.
 
-- **Daily template** (Templater): frontmatter `tags: [YYYY/MM/DD, Daily]`,
-  yesterday/tomorrow nav links, `## Notes`, then Dataview blocks `## TODO`
-  (priority-sorted), `### Completed / Cancelled`, `### References`. The TODO Dataview
-  sorts by Tasks-plugin priority emojis: 🔺 (0) ⏫ (1) 🔼 (2) 🔽 (3) ⏬ (4), default 2.5.
+- **Daily template** (Templater, provided by the user, installed by the planner):
+  frontmatter `tags: [YYYY/MM/DD, Daily]`, yesterday/tomorrow nav links, `## Notes`,
+  then Dataview blocks `## TODO` (priority-sorted), `### Completed / Cancelled`,
+  `### References`. The TODO Dataview sorts by Tasks-plugin priority emojis:
+  🔺 (0) ⏫ (1) 🔼 (2) 🔽 (3) ⏬ (4), default 2.5.
+- **Weekly template** (Templater, authored by the planner in the daily template's
+  style, installed into the vault): frontmatter `tags: [Weekly]`, then a Dataview
+  `TASK` block that groups open vault tasks by `#project/<Name>` with the same
+  priority-emoji sort (urgent-on-top per group). The planner appends a static
+  synthesized snapshot underneath the Dataview when it generates each weekly note
+  (see §6).
 - **Projects** live under `00-InProgress/<Name>/00-<Name>.md`, tagged
   `#project/<Name>`, with sections `## Summary`, `## Members`, `## Timeline`,
   Dataview `## TODO` / `### Completed` / `### Cancelled`, and `## References`.
@@ -94,12 +102,13 @@ plugins/wp-labs-planner/
           vault.py                 # read projects, open tasks, state files
         synthesis.py               # wraps `claude -p` calls + prompt assembly
         render_daily.py            # port of the Templater daily template + injected sections
-        render_weekly.py           # weekly overview + project ## Status / timeline updates
+        render_weekly.py           # weekly note (Dataview + static snapshot) + project ## Status updates
         daily.py                   # entry point:  python -m planner.daily
         weekly.py                  # entry point:  python -m planner.weekly
       tests/                       # pytest mirroring module structure
     templates/
-      Daily.md                     # the user's Templater daily template (installed into vault)
+      Daily.md                     # provided daily Templater template (installed into vault)
+      Weekly.md                    # weekly Templater template authored from Daily.md (installed into vault)
       config.example.yaml
       prompts/{daily,weekly}_synthesis.md
       launchd/                     # macOS plist examples (daily + Friday weekly)
@@ -119,7 +128,7 @@ missing:
 3. Google OAuth: `credentials.json` present, `token.json` cached (runs the consent
    flow if not).
 4. OneNote converter installed and on PATH.
-5. `Daily.md` template copied into the vault's templates folder.
+5. `Daily.md` and `Weekly.md` templates copied into the vault's templates folder.
 6. Schedule: launchd jobs installed (optional) — daily, plus weekly on Fridays.
 7. A recent daily note exists (sanity signal that runs are happening).
 
@@ -156,11 +165,16 @@ a recent daily note present.
    open vault tasks (excluding `zz-Templates`) with note/heading context.
 2. Synthesis (`prompts/weekly_synthesis.md`):
    - a one-line dated **status** per project (progress this week + what's next);
-   - a todo list **grouped by project** (via the project list + `#project/<Name>`
-     tags) with urgent items (🔺⏫) pinned to the top of each group.
-3. Render:
-   - Write `<weekly_dir>/YYYY-MM-DD-week-overview.md` (date = generation/Friday day),
-     frontmatter tagged `Weekly`, each group headed by a `[[00-<Name>|<Name>]]` link.
+   - a static **grouped-by-project** todo snapshot (via the project list +
+     `#project/<Name>` tags) with urgent items (🔺⏫) pinned to the top of each group.
+3. Render `<weekly_dir>/YYYY-MM-DD-week-overview.md` (date = generation/Friday day) from
+   the `Weekly.md` template:
+   - Emit the template's Dataview `TASK` block **verbatim** (renders live in Obsidian:
+     open tasks grouped by `#project/<Name>`, urgent-on-top).
+   - **Underneath the Dataview**, write the static synthesized snapshot — the
+     grouped-by-project todo list frozen at Friday + the per-project status lines — so
+     the note is a permanent record alongside the live view. Each group is headed by a
+     `[[00-<Name>|<Name>]]` link; frontmatter tagged `Weekly`.
    - For each project, update its `## Status` section in place: insert the dated status
      line newest-first, preserving prior entries; create the section if absent. Back up
      the project file before writing.
