@@ -21,7 +21,7 @@ def _load_prompt(name: str) -> str:
     return (Path(__file__).resolve().parent.parent / "templates" / "prompts" / name).read_text()
 
 
-def _safe(label: str, fn):  # type: ignore[no-untyped-def]
+def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
     try:
         return fn()
     except Exception as exc:  # noqa: BLE001 — resilience
@@ -30,10 +30,10 @@ def _safe(label: str, fn):  # type: ignore[no-untyped-def]
 
 
 def _gather_weekly(vault, cfg: Config) -> tuple[dict, list]:  # type: ignore[no-untyped-def]
-    projects = list_projects(vault, cfg)
+    projects: list = _safe("list_projects", lambda: list_projects(vault, cfg)) or []  # type: ignore[assignment]
     payload = {
         "projects": [{"name": p.name, "content": p.content} for p in projects],
-        "open_tasks": [t.__dict__ for t in _safe("tasks", lambda: open_tasks(vault, cfg))],
+        "open_tasks": [t.__dict__ for t in (_safe("tasks", lambda: open_tasks(vault, cfg)) or [])],  # type: ignore[attr-defined]
     }
     return payload, projects
 

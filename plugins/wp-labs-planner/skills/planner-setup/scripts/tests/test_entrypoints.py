@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 import planner.daily as daily_mod
+import planner.weekly as weekly_mod
 from planner.config import load_config
 from planner.obsidian import FilesystemVault
 
@@ -26,3 +27,17 @@ def test_run_daily_end_to_end(tmp_path: Path, monkeypatch) -> None:
     path = daily_mod.run_daily(cfg, date(2026, 6, 23))
     assert path.endswith("2026-06-23.md")
     assert "### ✅ This Week So Far" in (tmp_path / "zz-Sherry_Daily" / "2026-06-23.md").read_text()
+
+
+def test_run_weekly_end_to_end(tmp_path: Path, monkeypatch) -> None:
+    cfg = load_config(str(FIXTURE))
+    cfg.vault.path = str(tmp_path)
+    cfg.obsidian.mode = "filesystem"
+    cfg.vault.git_commit = False
+    monkeypatch.setattr(weekly_mod, "make_vault", lambda c: FilesystemVault(str(tmp_path)))
+    monkeypatch.setattr(weekly_mod, "_gather_weekly", lambda vault, cfg: ({"projects": [], "open_tasks": []}, []))
+    monkeypatch.setattr(weekly_mod, "synthesize_weekly", lambda cfg, tmpl, payload: {"projects": [], "groups": []})
+    touched = weekly_mod.run_weekly(cfg, date(2026, 6, 26))
+    assert any("week-overview" in p for p in touched)
+    body = FilesystemVault(str(tmp_path)).read("zz-Sherry_Weekly/2026-06-26-week-overview.md")
+    assert "Weekly" in body

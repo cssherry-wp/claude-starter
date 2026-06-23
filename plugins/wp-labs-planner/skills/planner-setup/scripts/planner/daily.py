@@ -31,7 +31,7 @@ def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
 
 
 def _gather_daily(vault, cfg: Config, today: date) -> dict:  # type: ignore[no-untyped-def]
-    week_start = today.fromordinal(today.toordinal() - today.weekday())
+    week_start = date.fromordinal(today.toordinal() - today.weekday())
     creds_holder: dict = {}
 
     def services() -> tuple:  # lazy: only authenticate if a Google collector runs
