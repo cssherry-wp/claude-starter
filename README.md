@@ -37,7 +37,7 @@ Then enable the recommended external plugins:
 /plugin install context7@claude-plugins-official
 /plugin install playwright@claude-plugins-official
 /plugin install typescript-lsp@claude-plugins-official
-/plugin install superpowers@superpowers-marketplace
+/plugin install superpowers@claude-plugins-official
 ```
 
 Browse or manage everything anytime with `/plugin`.
