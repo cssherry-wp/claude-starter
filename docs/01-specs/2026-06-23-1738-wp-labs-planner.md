@@ -91,7 +91,8 @@ A new plugin modeled on `wp-labs-sdlc`:
 
 ```
 plugins/wp-labs-planner/
-  .claude-plugin/plugin.json       # incl. mcpServers: mcp-obsidian, env ${OBSIDIAN_API_KEY} (§5.2)
+  .claude-plugin/plugin.json
+  .mcp.json                        # native obsidian /mcp/ (http) via Bearer ${OBSIDIAN_API_KEY} (§5.2)
   skills/planner-setup/
     SKILL.md                       # check-status-then-bootstrap entry point
     scripts/                       # the bundled Python tool (installed on setup)
@@ -145,71 +146,64 @@ a recent daily note present.
 
 A thin `obsidian.py` abstracts how the tool talks to the vault. The chosen stack is the
 [`obsidian-local-rest-api`](https://github.com/coddingtonbear/obsidian-local-rest-api)
-plugin fronted by the [`mcp-obsidian`](https://github.com/MarkusPfundstein/mcp-obsidian)
-MCP server (`uvx mcp-obsidian`; env `OBSIDIAN_API_KEY`, `OBSIDIAN_HOST` default
-`127.0.0.1`, `OBSIDIAN_PORT` default `27124`).
+plugin (v4.1.3, "Local REST API with MCP"), using its **built-in MCP server** at
+`POST https://127.0.0.1:27124/mcp/` (Streamable HTTP transport, API key as bearer token).
+This replaces the third-party `mcp-obsidian` (stdio) — see "Why the native server" below.
 
-- **Read/write via REST API (preferred for note I/O).** `mcp-obsidian` v1.28.0 exposes
-  `obsidian_`-prefixed tools: `obsidian_list_files_in_vault`, `obsidian_list_files_in_dir`,
-  `obsidian_get_file_contents`, `obsidian_batch_get_file_contents`,
-  `obsidian_simple_search`, `obsidian_complex_search`,
-  `obsidian_patch_content` (insert relative to a heading — used to inject under
-  `## Notes` and to update project `## Status`/`## Timeline`), `obsidian_append_content`,
-  and `obsidian_delete_file`. The planner uses these to read notes, search the vault, and
-  write/patch the daily and weekly notes robustly, without stealing window focus.
-- **Verified against the live vault (2026-06-23).** Handshake + `tools/list` succeed;
-  `obsidian_list_files_in_dir 00-InProgress` returns the real projects (A5, Duravant,
-  Esentire, Hexarmor, Infinite, Qualifacts, SDLC, VIP, WarburgTA, iNRCORE) and
-  `obsidian_get_file_contents zz-Templates/Daily.md` returns the Daily template — both
-  confirming the assumed vault structure. Daily notes live in `zz-Sherry_Daily/` as
-  `YYYY-MM-DD.md`, and `## Notes` is already authored as `### <topic> #project/<Name>`
-  blocks — matching the per-event format in §6.
-- **Write path verified (reversibly).** `obsidian_patch_content`
-  (`operation=append, target_type=heading, target=Notes`) inserts under `## Notes`
-  successfully; a REST `PUT` restored the note byte-for-byte afterward. This is the
-  planner's core write operation. *TLS caveat:* the Local REST API uses a self-signed
-  cert on `127.0.0.1:27124`; the test used an unverified context (fine on loopback), but
-  the implementation should trust the plugin's CA or pin the cert rather than disable
-  verification globally.
-- **Do NOT rely on the periodic-note / recent-change tools.** Against
-  `obsidian-local-rest-api` v4.1.3, `obsidian_get_recent_changes` (err 40012) and
-  `obsidian_get_recent_periodic_notes`/`obsidian_get_periodic_note` (err 40054) fail on a
-  header/version mismatch (and periodic endpoints expect Obsidian's *Periodic Notes*
-  plugin). So recent-note discovery (§6 step 1) stays on directory listing +
-  mtime/git, not these tools, until the version compatibility is resolved (§12).
-- **Template expansion still needs the `obsidian://` URI.** The REST API/MCP can read a
-  template's text but **cannot run Templater**, so resolving the Daily template's
-  Templater logic uses `obsidian://open?vault=<vault>&file=zz-Templates%2FDaily` (or a
-  small Python port of the static parts when Obsidian is unavailable, e.g. unattended
-  runs).
+- **Native MCP tools (note I/O).** `vault_list`, `vault_read` (content + frontmatter +
+  tags + **stat/mtime**), `vault_write`, `vault_append`, `vault_patch` (heading / block /
+  frontmatter — used to inject under `## Notes` and to update project
+  `## Status`/`## Timeline`), `vault_delete`, `vault_move`, `vault_get_document_map`,
+  `periodic_note_get_path`, `search_query` (JsonLogic), `search_simple`, `tag_list`,
+  `command_list`, `command_execute`, `open_file`, `active_file_get_path`.
+- **Why the native server (resolves the version mismatch).** The third-party
+  `mcp-obsidian` v1.28.0 targets endpoints this plugin version doesn't expose:
+  `get_recent_changes` POSTs `/search/` with `application/vnd.olrapi.dataview.dql+txt`,
+  which v4.1.3 rejects (err 40012 — it only accepts `…jsonlogic+json`), and
+  `get_recent_periodic_notes` hits `/periodic/{period}/recent`, which doesn't exist
+  (err 40054). The plugin's own MCP server can't drift from the plugin, and its richer
+  toolset covers the gaps: **recent-change discovery** uses `vault_read` stat or
+  `search_query`; **periodic notes** use `periodic_note_get_path`.
+- **Verified live (2026-06-23).** Native `/mcp/` handshake returns a session
+  (`serverInfo: obsidian-local-rest-api`, protocol `2025-06-18`) and `tools/list` returns
+  all 16 tools. `00-InProgress` lists the real projects (A5, Duravant, Esentire, Hexarmor,
+  Infinite, Qualifacts, SDLC, VIP, WarburgTA, iNRCORE); `zz-Templates/Daily.md` reads
+  back; daily notes live in `zz-Sherry_Daily/YYYY-MM-DD.md` and `## Notes` is already
+  authored as `### <topic> #project/<Name>` blocks (matching §6). A heading-relative
+  patch under `## Notes` succeeded and was restored byte-for-byte — the planner's core
+  write op.
+- **Template expansion still needs Obsidian.** No MCP tool runs Templater directly, so
+  resolving the Daily template uses the `obsidian://open?vault=<vault>&file=zz-Templates
+  %2FDaily` URI (or a static Python port of the template when Obsidian is closed, e.g.
+  unattended runs). `command_execute` may be able to trigger a Templater command instead
+  — to be evaluated in planning (§12).
 
 `config.yaml` selects the I/O mode (`obsidian.mode: mcp | filesystem`); collectors and
 renderers call `obsidian.py` and stay agnostic to which is active.
 
-**Registration & secret handling.** The `wp-labs-planner` plugin **bundles the
-`mcp-obsidian` server declaration** (a `mcpServers` entry in `plugin.json` / plugin-root
-`.mcp.json`), so installing the plugin registers the server. The declaration references
-`${OBSIDIAN_API_KEY}` rather than embedding the key:
+**Registration, secret & TLS handling.** The `wp-labs-planner` plugin **bundles the MCP
+server declaration** (plugin-root `.mcp.json`) as an HTTP server referencing
+`${OBSIDIAN_API_KEY}` — no key committed:
 
 ```json
-{ "mcpServers": { "mcp-obsidian": {
-  "command": "uvx", "args": ["mcp-obsidian"],
-  "env": { "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}",
-           "OBSIDIAN_HOST": "${OBSIDIAN_HOST:-127.0.0.1}",
-           "OBSIDIAN_PORT": "${OBSIDIAN_PORT:-27124}" } } } }
+{ "mcpServers": { "obsidian": {
+  "type": "http",
+  "url": "https://127.0.0.1:27124/mcp/",
+  "headers": { "Authorization": "Bearer ${OBSIDIAN_API_KEY}" } } } }
 ```
 
-`.mcp.json`/`plugin.json` support `${VAR}` and `${VAR:-default}` interpolation, but
-Claude Code reads the value from the **shell environment at launch** — it does *not*
-auto-load a `.env`. So the user exports `OBSIDIAN_API_KEY` (shell profile, `direnv`, or
-`source`) before starting Claude; the secret is never committed. (For non-plugin/manual
-setup, `claude mcp add -s user` keeps the literal key in `~/.claude.json` instead.)
+`.mcp.json` supports `${VAR}`/`${VAR:-default}` interpolation, but Claude Code reads the
+value from the **shell environment at launch** — it does *not* auto-load a `.env`. So the
+user exports `OBSIDIAN_API_KEY` (shell profile / `direnv`) before starting Claude.
+*TLS:* the endpoint is HTTPS with a self-signed cert; Claude Code's HTTP MCP client must
+trust it — point `NODE_EXTRA_CA_CERTS` at the plugin's cert (downloadable from
+`GET /obsidian-local-rest-api.crt`) or enable the plugin's plain-HTTP port. The planner's
+Python client trusts the same cert (never disables verification globally).
 
-*Status in this environment:* working end-to-end via direct stdio — Local REST API
-v4.1.3 running, `OBSIDIAN_API_KEY` exported, `uvx mcp-obsidian` connects and reads the
-vault. Caveat: bundled-plugin MCP servers only load in Claude once the plugin is
-installed/enabled from a marketplace and the session reloads; the planner tooling drives
-the server directly (as validated) regardless.
+*Status in this environment:* native `/mcp/` validated end-to-end via direct HTTP
+(initialize → session id, `tools/list` → 16 tools, read + reversible write). Bundled-
+plugin MCP servers load in Claude only once the plugin is enabled and the session
+reloads; the planner tooling drives the server directly regardless.
 
 ## 6. Behavior
 
@@ -319,10 +313,12 @@ setup** (default `claude -p`; or a local model — installing Ollama, pulling a 
 pointing `llm.backend: local` at it for fully offline runs) → `config.yaml` → vault
 paths and template install → running each script manually → optional macOS `launchd`
 schedule (daily + Friday weekly). The **Obsidian integration** step covers: installing
-and enabling the Local REST API plugin, copying its API key, and **exporting
-`OBSIDIAN_API_KEY`** in the shell (Claude Code does not auto-load `.env`) so the
-plugin-bundled `mcp-obsidian` server connects — or choosing `mode: filesystem` /
-`obsidian://` URI to skip the MCP entirely.
+and enabling the Local REST API plugin (v4.x, with its built-in `/mcp/` server), copying
+its API key, **exporting `OBSIDIAN_API_KEY`** in the shell (Claude Code does not auto-load
+`.env`), and **trusting the self-signed cert** (`NODE_EXTRA_CA_CERTS` →
+`/obsidian-local-rest-api.crt`, or enable the plain-HTTP port) so the plugin-bundled
+native MCP server connects — or choosing `mode: filesystem` / `obsidian://` URI to skip
+the MCP entirely.
 
 ## 12. Open items for planning
 
@@ -337,7 +333,11 @@ plugin-bundled `mcp-obsidian` server connects — or choosing `mode: filesystem`
   `filesystem`, and behavior for unattended/scheduled runs. Plus the template-expansion
   path when Obsidian is closed (URI requires it running; a static Python port is the
   offline fallback) — REST API/MCP cannot run Templater.
-- Resolve the `mcp-obsidian` ↔ `obsidian-local-rest-api` version incompatibility that
-  breaks `obsidian_get_recent_changes` (40012) and the periodic-note tools (40054):
-  pin compatible versions and/or install the *Periodic Notes* plugin, else keep recent-
-  note discovery on directory listing + mtime/git.
+- ~~Version mismatch~~ **resolved**: use the plugin's native `/mcp/` server (§5.2)
+  instead of third-party `mcp-obsidian`; recent-change/periodic gaps covered by
+  `vault_read` stat / `search_query` / `periodic_note_get_path`.
+- TLS trust for Claude Code's HTTP MCP client to the self-signed `/mcp/` endpoint
+  (`NODE_EXTRA_CA_CERTS` vs enabling the plugin's plain-HTTP port) — pick the setup the
+  `planner-setup` skill automates.
+- Whether `command_execute` can trigger Templater daily-template expansion (removing the
+  `obsidian://` URI dependency), vs the static Python-port fallback.
