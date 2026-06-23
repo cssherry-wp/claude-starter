@@ -161,7 +161,16 @@ MCP server (`uvx mcp-obsidian`; env `OBSIDIAN_API_KEY`, `OBSIDIAN_HOST` default
   `obsidian_list_files_in_dir 00-InProgress` returns the real projects (A5, Duravant,
   Esentire, Hexarmor, Infinite, Qualifacts, SDLC, VIP, WarburgTA, iNRCORE) and
   `obsidian_get_file_contents zz-Templates/Daily.md` returns the Daily template — both
-  confirming the assumed vault structure.
+  confirming the assumed vault structure. Daily notes live in `zz-Sherry_Daily/` as
+  `YYYY-MM-DD.md`, and `## Notes` is already authored as `### <topic> #project/<Name>`
+  blocks — matching the per-event format in §6.
+- **Write path verified (reversibly).** `obsidian_patch_content`
+  (`operation=append, target_type=heading, target=Notes`) inserts under `## Notes`
+  successfully; a REST `PUT` restored the note byte-for-byte afterward. This is the
+  planner's core write operation. *TLS caveat:* the Local REST API uses a self-signed
+  cert on `127.0.0.1:27124`; the test used an unverified context (fine on loopback), but
+  the implementation should trust the plugin's CA or pin the cert rather than disable
+  verification globally.
 - **Do NOT rely on the periodic-note / recent-change tools.** Against
   `obsidian-local-rest-api` v4.1.3, `obsidian_get_recent_changes` (err 40012) and
   `obsidian_get_recent_periodic_notes`/`obsidian_get_periodic_note` (err 40054) fail on a
