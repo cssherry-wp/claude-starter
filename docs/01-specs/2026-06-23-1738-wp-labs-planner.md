@@ -91,7 +91,7 @@ A new plugin modeled on `wp-labs-sdlc`:
 
 ```
 plugins/wp-labs-planner/
-  .claude-plugin/plugin.json
+  .claude-plugin/plugin.json       # incl. mcpServers: mcp-obsidian, env ${OBSIDIAN_API_KEY} (§5.2)
   skills/planner-setup/
     SKILL.md                       # check-status-then-bootstrap entry point
     scripts/                       # the bundled Python tool (installed on setup)
@@ -164,11 +164,28 @@ MCP server (`uvx mcp-obsidian`; env `OBSIDIAN_API_KEY`, `OBSIDIAN_HOST` default
 `config.yaml` selects the I/O mode (`obsidian.mode: mcp | filesystem`); collectors and
 renderers call `obsidian.py` and stay agnostic to which is active.
 
+**Registration & secret handling.** The `wp-labs-planner` plugin **bundles the
+`mcp-obsidian` server declaration** (a `mcpServers` entry in `plugin.json` / plugin-root
+`.mcp.json`), so installing the plugin registers the server. The declaration references
+`${OBSIDIAN_API_KEY}` rather than embedding the key:
+
+```json
+{ "mcpServers": { "mcp-obsidian": {
+  "command": "uvx", "args": ["mcp-obsidian"],
+  "env": { "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}",
+           "OBSIDIAN_HOST": "${OBSIDIAN_HOST:-127.0.0.1}",
+           "OBSIDIAN_PORT": "${OBSIDIAN_PORT:-27124}" } } } }
+```
+
+`.mcp.json`/`plugin.json` support `${VAR}` and `${VAR:-default}` interpolation, but
+Claude Code reads the value from the **shell environment at launch** — it does *not*
+auto-load a `.env`. So the user exports `OBSIDIAN_API_KEY` (shell profile, `direnv`, or
+`source`) before starting Claude; the secret is never committed. (For non-plugin/manual
+setup, `claude mcp add -s user` keeps the literal key in `~/.claude.json` instead.)
+
 *Status in this environment:* `uvx` is installed; the Local REST API is not yet running
 (plugin not enabled / Obsidian closed), so the MCP server cannot connect until the
-plugin is enabled, an API key is generated, and the server is registered. The
-`OBSIDIAN_API_KEY` is a secret and must live in user/local MCP config or an env var —
-never committed.
+Obsidian plugin is enabled, a key is generated, and `OBSIDIAN_API_KEY` is exported.
 
 ## 6. Behavior
 
@@ -277,9 +294,11 @@ Cloud OAuth client (Gmail + Docs scopes) → OneNote converter install → **LLM
 setup** (default `claude -p`; or a local model — installing Ollama, pulling a model,
 pointing `llm.backend: local` at it for fully offline runs) → `config.yaml` → vault
 paths and template install → running each script manually → optional macOS `launchd`
-schedule (daily + Friday weekly). The **Obsidian integration** step covers both modes:
-installing the Local REST API plugin (+ optional MCP server) for `mode: mcp`, or
-relying on the `obsidian://` URI for `mode: uri`.
+schedule (daily + Friday weekly). The **Obsidian integration** step covers: installing
+and enabling the Local REST API plugin, copying its API key, and **exporting
+`OBSIDIAN_API_KEY`** in the shell (Claude Code does not auto-load `.env`) so the
+plugin-bundled `mcp-obsidian` server connects — or choosing `mode: filesystem` /
+`obsidian://` URI to skip the MCP entirely.
 
 ## 12. Open items for planning
 
