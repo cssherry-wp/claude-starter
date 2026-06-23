@@ -52,20 +52,22 @@ def build_weekly_body(synthesis: dict, gen_day: date) -> str:
     return "\n".join(lines) + "\n"
 
 
-def update_project_section(content: str, heading: str, dated_line: str) -> str:
+def update_project_section(
+    content: str, heading: str, dated_line: str, entry_date: date | None = None
+) -> str:
     """Insert a dated bullet newest-first under ## heading (create before ## TODO).
 
     Args:
         content: The original content of the project note.
         heading: The section heading (without ##).
         dated_line: The line text to add (will be prefixed with date).
+        entry_date: The date to stamp the bullet; defaults to today.
 
     Returns:
         The updated content with the dated bullet added under the heading.
     """
-    from datetime import date as _date
-
-    bullet = f"- {_date.today().isoformat()} — {dated_line}"
+    stamp = (entry_date or date.today()).isoformat()
+    bullet = f"- {stamp} — {dated_line}"
     marker = f"## {heading}"
     if marker in content:
         idx = content.index(marker) + len(marker)
@@ -100,8 +102,8 @@ def render_weekly(vault: Vault, cfg: Config, synthesis: dict,
         if not info:
             continue
         content = vault.read(proj.path)
-        content = update_project_section(content, "Status", info.get("status", ""))
-        content = update_project_section(content, "Timeline", info.get("timeline_assessment", ""))
+        content = update_project_section(content, "Status", info.get("status", ""), gen_day)
+        content = update_project_section(content, "Timeline", info.get("timeline_assessment", ""), gen_day)
         vault.write(proj.path, content)
         touched.append(proj.path)
     return touched

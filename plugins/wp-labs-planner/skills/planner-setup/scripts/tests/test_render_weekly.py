@@ -28,9 +28,9 @@ def test_build_weekly_body_orders_urgent_first() -> None:
 
 def test_update_project_section_creates_and_prepends() -> None:
     content = "# A5\n## Summary\n\n## TODO\n- [ ] x\n"
-    out = update_project_section(content, "Status", "made progress")
+    out = update_project_section(content, "Status", "made progress", date(2026, 6, 26))
     assert "## Status" in out
-    assert "2026" in out or "- " in out
+    assert "- 2026-06-26 — made progress" in out
     assert out.index("## Status") < out.index("## TODO")
 
 
@@ -48,4 +48,6 @@ def test_render_weekly_writes_and_updates(tmp_path: Path) -> None:
                  "groups": []}
     touched = render_weekly(v, cfg, synthesis, projects, date(2026, 6, 26))
     assert any("week-overview" in p for p in touched)
-    assert "## Status" in v.read("00-InProgress/VIP/00-VIP.md")
+    body = v.read("00-InProgress/VIP/00-VIP.md")
+    assert "## Status" in body and "shipped" in body
+    assert "## Timeline" in body and "on track" in body
