@@ -7,6 +7,7 @@ from planner.gitcommit import commit_files, is_git_repo
 
 
 def init_repo(tmp_path: Path) -> Path:
+    """Initialize a temp git repo with a committer identity."""
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "t@x.com"], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "T"], check=True)
@@ -32,3 +33,8 @@ def test_commit_only_named_file(tmp_path: Path) -> None:
 def test_commit_no_changes_is_noop(tmp_path: Path) -> None:
     init_repo(tmp_path)
     assert commit_files(str(tmp_path), ["missing.md"], "planner: test") is False
+
+
+def test_commit_empty_files_list(tmp_path: Path) -> None:
+    init_repo(tmp_path)
+    assert commit_files(str(tmp_path), [], "planner: test") is False

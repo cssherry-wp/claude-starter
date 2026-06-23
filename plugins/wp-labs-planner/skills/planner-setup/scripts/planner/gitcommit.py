@@ -8,7 +8,14 @@ log = logging.getLogger(__name__)
 
 
 def is_git_repo(path: str) -> bool:
-    """Return True if `path` is inside a git work tree."""
+    """Return True if `path` is inside a git work tree.
+
+    Args:
+        path: Path to check for git work tree.
+
+    Returns:
+        True if path is inside a git work tree, False otherwise.
+    """
     try:
         res = subprocess.run(["git", "-C", path, "rev-parse", "--is-inside-work-tree"],
                              capture_output=True, text=True, timeout=10)
@@ -18,7 +25,17 @@ def is_git_repo(path: str) -> bool:
 
 
 def commit_files(repo_path: str, files: list[str], message: str) -> bool:
-    """Stage only `files` and commit. Returns True on commit, False on no-op/failure."""
+    """Stage only `files` and commit. Returns True on commit, False on no-op/failure.
+
+    Args:
+        repo_path: Path to the git repository.
+        files: List of file paths to stage and commit.
+        message: Commit message.
+
+    Returns:
+        True if files were successfully committed, False if no-op (empty files list,
+        no staged changes) or if an error occurs (never raises).
+    """
     if not files:
         return False
     try:
