@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Refresh the vendored superpowers-team fork from upstream obra/superpowers.
+# Refresh the vendored superpowers-team fork from the superpowers snapshot that
+# anthropics/claude-plugins-official currently pins (a specific, vetted
+# obra/superpowers commit) — i.e. track Anthropic's curated release, not
+# upstream HEAD.
 #
 # Detects a new upstream release by comparing the upstream plugin.json `version`
 # against our fork's base version (the part before the `-team.N` suffix). If they
@@ -14,7 +17,7 @@
 # Outputs (also written to $GITHUB_OUTPUT when set): changed, version, sha
 set -euo pipefail
 
-UPSTREAM_REPO="https://github.com/obra/superpowers.git"
+MARKETPLACE_REPO="https://github.com/anthropics/claude-plugins-official.git"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FORK_DIR="$ROOT/plugins/superpowers-team"
 MODE="${1:-refresh}"
@@ -27,8 +30,28 @@ current_base="${current_version%%-team*}"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-git clone --quiet --depth 1 "$UPSTREAM_REPO" "$TMP/up"
+
+# Resolve the superpowers source the official marketplace currently blesses: its
+# manifest pins obra/superpowers to a specific, vetted commit. Building from that
+# commit tracks Anthropic's curated snapshot rather than upstream HEAD.
+git clone --quiet --depth 1 "$MARKETPLACE_REPO" "$TMP/mp"
+read -r src_url src_sha <<<"$(node -e '
+  const m = require(process.argv[1]);
+  const p = (m.plugins || []).find((x) => x.name === "superpowers");
+  if (!p || !p.source || !p.source.url) {
+    console.error("superpowers source not found in official marketplace manifest");
+    process.exit(1);
+  }
+  process.stdout.write(p.source.url + " " + (p.source.sha || ""));
+' "$TMP/mp/.claude-plugin/marketplace.json")"
+
+# Fetch just the pinned commit (falls back to default HEAD if the manifest pins
+# by branch rather than sha).
 src="$TMP/up"
+mkdir -p "$src"
+git -C "$src" init -q
+git -C "$src" fetch --quiet --depth 1 "$src_url" "${src_sha:-HEAD}"
+git -C "$src" checkout --quiet FETCH_HEAD
 upstream_version=$(ver "$src/.claude-plugin/plugin.json")
 upstream_sha=$(git -C "$src" rev-parse HEAD)
 
@@ -99,7 +122,7 @@ plugin essentials and customized with the team docs-path convention.
 
 ## Upstream base
 
-- Source: \`obra/superpowers\`
+- Source: \`obra/superpowers\` (the commit pinned by \`anthropics/claude-plugins-official\`)
 - Version: **${upstream_version}**
 - Base commit: **\`${upstream_sha}\`**
 - License: MIT (see \`LICENSE\`)
