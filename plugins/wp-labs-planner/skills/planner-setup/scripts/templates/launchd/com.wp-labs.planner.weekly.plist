@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.wp-labs.planner.weekly</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string><string>-lc</string>
+    <string>cd /PATH/TO/scripts &amp;&amp; uv run python -m planner.weekly --config /PATH/TO/config.yaml</string>
+  </array>
+  <key>StartCalendarInterval</key><dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer></dict>
+  <key>StandardErrorPath</key><string>/tmp/planner.weekly.log</string>
+  <key>StandardOutPath</key><string>/tmp/planner.weekly.log</string>
+</dict>
+</plist>
