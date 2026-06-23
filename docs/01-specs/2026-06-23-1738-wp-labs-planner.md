@@ -149,12 +149,25 @@ plugin fronted by the [`mcp-obsidian`](https://github.com/MarkusPfundstein/mcp-o
 MCP server (`uvx mcp-obsidian`; env `OBSIDIAN_API_KEY`, `OBSIDIAN_HOST` default
 `127.0.0.1`, `OBSIDIAN_PORT` default `27124`).
 
-- **Read/write via REST API (preferred for note I/O).** The plugin/MCP exposes
-  `list_files_in_vault`, `list_files_in_dir`, `get_file_contents`, `search`,
-  `patch_content` (insert relative to a heading — used to inject under `## Notes` and to
-  update project `## Status`/`## Timeline`), `append_content`, and `delete_file`. The
-  planner uses these to read recent notes, search the vault, and write/patch the daily
-  and weekly notes robustly, without stealing window focus.
+- **Read/write via REST API (preferred for note I/O).** `mcp-obsidian` v1.28.0 exposes
+  `obsidian_`-prefixed tools: `obsidian_list_files_in_vault`, `obsidian_list_files_in_dir`,
+  `obsidian_get_file_contents`, `obsidian_batch_get_file_contents`,
+  `obsidian_simple_search`, `obsidian_complex_search`,
+  `obsidian_patch_content` (insert relative to a heading — used to inject under
+  `## Notes` and to update project `## Status`/`## Timeline`), `obsidian_append_content`,
+  and `obsidian_delete_file`. The planner uses these to read notes, search the vault, and
+  write/patch the daily and weekly notes robustly, without stealing window focus.
+- **Verified against the live vault (2026-06-23).** Handshake + `tools/list` succeed;
+  `obsidian_list_files_in_dir 00-InProgress` returns the real projects (A5, Duravant,
+  Esentire, Hexarmor, Infinite, Qualifacts, SDLC, VIP, WarburgTA, iNRCORE) and
+  `obsidian_get_file_contents zz-Templates/Daily.md` returns the Daily template — both
+  confirming the assumed vault structure.
+- **Do NOT rely on the periodic-note / recent-change tools.** Against
+  `obsidian-local-rest-api` v4.1.3, `obsidian_get_recent_changes` (err 40012) and
+  `obsidian_get_recent_periodic_notes`/`obsidian_get_periodic_note` (err 40054) fail on a
+  header/version mismatch (and periodic endpoints expect Obsidian's *Periodic Notes*
+  plugin). So recent-note discovery (§6 step 1) stays on directory listing +
+  mtime/git, not these tools, until the version compatibility is resolved (§12).
 - **Template expansion still needs the `obsidian://` URI.** The REST API/MCP can read a
   template's text but **cannot run Templater**, so resolving the Daily template's
   Templater logic uses `obsidian://open?vault=<vault>&file=zz-Templates%2FDaily` (or a
@@ -183,9 +196,11 @@ auto-load a `.env`. So the user exports `OBSIDIAN_API_KEY` (shell profile, `dire
 `source`) before starting Claude; the secret is never committed. (For non-plugin/manual
 setup, `claude mcp add -s user` keeps the literal key in `~/.claude.json` instead.)
 
-*Status in this environment:* `uvx` is installed; the Local REST API is not yet running
-(plugin not enabled / Obsidian closed), so the MCP server cannot connect until the
-Obsidian plugin is enabled, a key is generated, and `OBSIDIAN_API_KEY` is exported.
+*Status in this environment:* working end-to-end via direct stdio — Local REST API
+v4.1.3 running, `OBSIDIAN_API_KEY` exported, `uvx mcp-obsidian` connects and reads the
+vault. Caveat: bundled-plugin MCP servers only load in Claude once the plugin is
+installed/enabled from a marketplace and the session reloads; the planner tooling drives
+the server directly (as validated) regardless.
 
 ## 6. Behavior
 
@@ -313,3 +328,7 @@ plugin-bundled `mcp-obsidian` server connects — or choosing `mode: filesystem`
   `filesystem`, and behavior for unattended/scheduled runs. Plus the template-expansion
   path when Obsidian is closed (URI requires it running; a static Python port is the
   offline fallback) — REST API/MCP cannot run Templater.
+- Resolve the `mcp-obsidian` ↔ `obsidian-local-rest-api` version incompatibility that
+  breaks `obsidian_get_recent_changes` (40012) and the periodic-note tools (40054):
+  pin compatible versions and/or install the *Periodic Notes* plugin, else keep recent-
+  note discovery on directory listing + mtime/git.
