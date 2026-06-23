@@ -1,0 +1,33 @@
+[project]
+name = "wp-labs-planner"
+version = "0.1.0"
+description = "Daily & weekly Obsidian planner"
+requires-python = ">=3.11"
+dependencies = [
+  "google-api-python-client==2.149.0",
+  "google-auth==2.35.0",
+  "google-auth-oauthlib==1.2.1",
+  "pyyaml==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.3", "ruff==0.6.9", "mypy==1.11.2", "types-PyYAML==6.0.12.20240917"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["planner*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

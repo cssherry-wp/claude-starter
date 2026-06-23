@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: wp-labs-planner
+Version: 0.1.0
+Summary: Daily & weekly Obsidian planner
+Requires-Python: >=3.11
+Requires-Dist: google-api-python-client==2.149.0
+Requires-Dist: google-auth==2.35.0
+Requires-Dist: google-auth-oauthlib==1.2.1
+Requires-Dist: pyyaml==6.0.2
+Provides-Extra: dev
+Requires-Dist: pytest==8.3.3; extra == "dev"
+Requires-Dist: ruff==0.6.9; extra == "dev"
+Requires-Dist: mypy==1.11.2; extra == "dev"
+Requires-Dist: types-PyYAML==6.0.12.20240917; extra == "dev"
