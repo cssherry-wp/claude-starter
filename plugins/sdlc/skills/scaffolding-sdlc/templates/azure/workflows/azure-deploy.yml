@@ -1,0 +1,41 @@
+name: Azure Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# OIDC federated login to Azure (no stored credentials).
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    # Only runs once the Azure target is configured via repo variables.
+    if: ${{ vars.AZURE_WEBAPP_NAME != '' }}
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+      APP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build & push image in ACR
+        run: az acr build --registry "$ACR_NAME" --image "${APP_NAME}:${GITHUB_SHA}" .
+
+      - name: Point the Web App at the new image
+        run: |
+          az webapp config container set \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$APP_NAME" \
+            --container-image-name "${ACR_NAME}.azurecr.io/${APP_NAME}:${GITHUB_SHA}"
+          az webapp restart --resource-group "$RESOURCE_GROUP" --name "$APP_NAME"
