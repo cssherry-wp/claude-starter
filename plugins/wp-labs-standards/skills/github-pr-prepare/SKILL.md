@@ -1,6 +1,6 @@
 ---
-name: git-pr-prepare
-description: Use when agent makes a git PR
+name: github-pr-prepare
+description: Use when agent makes a GitHub PR
 ---
 
 - You can expect `gh` is installed and configured
