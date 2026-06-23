@@ -2,7 +2,10 @@
 .PHONY: install lint format check typecheck test test-e2e install-hooks
 
 install:
-	npm ci
+	# `npm install` (not `npm ci`): a freshly scaffolded repo has no
+	# package-lock.json yet; this creates it. CI uses `npm ci` off the
+	# committed lockfile.
+	npm install
 
 lint:
 	npx biome check .
