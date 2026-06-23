@@ -42,7 +42,7 @@ Browse or manage everything anytime with `/plugin`.
 
 ## Recommended setup
 
-The default set (wp-labs-standards + stock superpowers + the curated externals) is in
+The default set (wp-labs-standards + wp-labs-sdlc + stock superpowers + the curated externals) is in
 [`team-settings.json`](team-settings.json). To adopt it for a project, merge that file's
 `extraKnownMarketplaces` and `enabledPlugins` into the project's `.claude/settings.json` and commit
 it — teammates get the marketplaces added and the plugins enabled automatically on clone (after the
@@ -50,17 +50,13 @@ workspace-trust prompt).
 
 ### Default-enabled
 
-`wp-labs-standards`, `superpowers` (stock), `code-review`, `code-simplifier`,
+`wp-labs-standards`, `wp-labs-sdlc`, `superpowers` (stock), `code-review`, `code-simplifier`,
 `security-guidance`, `context7`, `playwright`, `typescript-lsp`.
-
-`wp-labs-sdlc` is available but not default-enabled — install it when you need to scaffold or top up
-a repo's SDLC automation.
 
 ### Opt-in (available, not enabled by default)
 
 | Plugin | Add it when |
 |---|---|
-| `wp-labs-sdlc@wp-labs-starter` | You're starting a repo or adding CI/test/security/hosting automation to one. |
 | `chrome-devtools-mcp@claude-plugins-official` | You need perf traces, Lighthouse, or memory profiling. Playwright already covers test writing + functional debugging, so add this only for perf/CWV/memory work. |
 | `ralph-loop@claude-plugins-official` | You want the autonomous loop runner — better as an individual opt-in than a team default. |
 | `wp-labs-superpowers@wp-labs-starter` | You want our docs-path convention baked into superpowers itself. **Disable stock `superpowers` first** — never enable both (duplicate skill names). |
