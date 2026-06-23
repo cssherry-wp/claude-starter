@@ -4,10 +4,12 @@ from typing import Any
 
 import pytest
 
+from pathlib import Path
+
 from planner.config import load_config
 from planner.errors import VaultIOError
 import planner.obsidian_mcp as mcp_mod
-from pathlib import Path
+from planner.obsidian_mcp import _parse_sse
 
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 
@@ -65,3 +67,9 @@ def test_missing_api_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = load_config(str(FIXTURE))
     with pytest.raises(VaultIOError, match="OBSIDIAN_API_KEY"):
         mcp_mod.McpVault(cfg, transport=FakeTransport())
+
+
+def test_parse_sse_picks_last_json() -> None:
+    text = "event: message\ndata: {\"result\": {\"x\": 1}}\ndata: [DONE]"
+    assert _parse_sse(text) == {"result": {"x": 1}}
+    assert _parse_sse("no data here") == {}

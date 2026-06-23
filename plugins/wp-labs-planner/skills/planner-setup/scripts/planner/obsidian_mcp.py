@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import ssl
 import urllib.request
@@ -10,7 +11,31 @@ from typing import Any, Protocol
 from planner.config import Config
 from planner.errors import VaultIOError
 
+log = logging.getLogger(__name__)
+
 PROTOCOL_VERSION = "2025-06-18"
+
+
+def _parse_sse(text: str) -> dict[str, Any]:
+    """Return the last JSON-parseable ``data:`` line from an SSE response body.
+
+    Non-JSON sentinel values such as ``data: [DONE]`` are silently skipped.
+
+    Args:
+        text: Raw SSE response text.
+
+    Returns:
+        Parsed dict from the last JSON ``data:`` line, or ``{}`` if none found.
+    """
+    last: dict[str, Any] = {}
+    for line in text.splitlines():
+        if line.startswith("data:"):
+            candidate = line[len("data:"):].strip()
+            try:
+                last = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+    return last
 
 
 class Transport(Protocol):
@@ -51,17 +76,13 @@ class HttpTransport:
         req.add_header("Authorization", f"Bearer {self._key}")
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json, text/event-stream")
+        req.add_header("MCP-Protocol-Version", PROTOCOL_VERSION)
         if session:
             req.add_header("Mcp-Session-Id", session)
-            req.add_header("MCP-Protocol-Version", PROTOCOL_VERSION)
         with urllib.request.urlopen(req, context=self._ctx, timeout=30) as resp:
             sid = resp.headers.get("Mcp-Session-Id") or session
             text = resp.read().decode("utf-8")
-        payload: dict[str, Any] = {}
-        for line in text.splitlines():
-            if line.startswith("data:"):
-                payload = json.loads(line[len("data:"):].strip())
-        return payload, sid
+        return _parse_sse(text), sid
 
 
 class McpVault:
@@ -74,6 +95,7 @@ class McpVault:
         url = f"https://{cfg.obsidian.host}:{cfg.obsidian.port}/mcp/"
         self._transport: Transport = transport or HttpTransport(url, key, cfg.obsidian.cert_path)
         self._session: str | None = None
+        self._req_id = 0
 
     def _ensure_session(self) -> None:
         if self._session:
@@ -95,7 +117,8 @@ class McpVault:
 
     def _call(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         self._ensure_session()
-        body = {"jsonrpc": "2.0", "id": 2, "method": method, "params": params}
+        self._req_id += 1
+        body = {"jsonrpc": "2.0", "id": self._req_id, "method": method, "params": params}
         payload, _ = self._transport.post(body, self._session)
         if "error" in payload:
             raise VaultIOError(f"MCP {method} error: {payload['error']}")
@@ -159,6 +182,7 @@ class McpVault:
             data = json.loads(raw)
             return float(data.get("stat", {}).get("mtime", 0)) / 1000.0
         except (json.JSONDecodeError, ValueError, AttributeError):
+            log.warning("stat_mtime: vault_read returned non-JSON or stat unavailable for %s; returning 0.0", filepath)
             return 0.0
 
     def write(self, filepath: str, content: str) -> None:
