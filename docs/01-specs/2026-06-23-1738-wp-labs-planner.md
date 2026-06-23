@@ -172,6 +172,14 @@ This replaces the third-party `mcp-obsidian` (stdio) — see "Why the native ser
   authored as `### <topic> #project/<Name>` blocks (matching §6). A heading-relative
   patch under `## Notes` succeeded and was restored byte-for-byte — the planner's core
   write op.
+- **Periodic-note tool, tested (2026-06-23).** `periodic_note_get_path(daily)` returns
+  `zz-Sherry_Daily/2026-06-23.md` (daily notes enabled) — the planner uses it to locate
+  today's note. `periodic_note_get_path(weekly)` errors *"Specified period is not
+  enabled"* (weekly notes off in Periodic Notes), so the weekly note must NOT depend on
+  it — the planner writes `weekly_output_dir/YYYY-MM-DD-week-overview.md` directly. There
+  is **no native "list recent periodic notes" tool**, so "last week's notes" discovery
+  lists `zz-Sherry_Daily/` and selects by date (the third-party
+  `obsidian_get_recent_periodic_notes` is moot — route absent in v4.1.3).
 - **Template expansion still needs Obsidian.** No MCP tool runs Templater directly, so
   resolving the Daily template uses the `obsidian://open?vault=<vault>&file=zz-Templates
   %2FDaily` URI (or a static Python port of the template when Obsidian is closed, e.g.
