@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from google.auth.transport.requests import Request
@@ -25,10 +26,30 @@ class CalendarEvent:
     raw: str
 
 
+def _event_is_future(start: str, now: datetime) -> bool:
+    """True if an ICS DTSTART (e.g. '20260625T150000Z') is at/after `now`.
+
+    Args:
+        start: DTSTART string from an ICS VEVENT.
+        now: Timezone-aware UTC datetime representing the current moment.
+
+    Returns:
+        True if the event is in the future (or unparseable), False if in the past.
+    """
+    try:
+        dt = datetime.strptime(start, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        return dt >= now
+    except ValueError:
+        pass
+    try:
+        dt_naive = datetime.strptime(start, "%Y%m%dT%H%M%S")
+        return dt_naive >= now.replace(tzinfo=None)
+    except ValueError:
+        return True
+
+
 def get_credentials(cfg: GoogleCfg, scopes: list[str]) -> Credentials:
     """Load cached credentials, refreshing or running the consent flow as needed."""
-    import os
-
     creds: Credentials | None = None
     if os.path.exists(cfg.token_path):
         creds = Credentials.from_authorized_user_file(cfg.token_path, scopes)
@@ -103,15 +124,16 @@ def _decode_part(part: dict[str, Any]) -> str:
 
 
 def fetch_calls(service: Any, planner_address: str) -> list[CalendarEvent]:
-    """Return timed calendar events from invite emails to the alias."""
+    """Return future-dated timed calendar events from invite emails to the alias."""
     q = f"to:{planner_address} has:attachment"
     listing = service.users().messages().list(userId="me", q=q).execute()
     events: list[CalendarEvent] = []
+    now = datetime.now(timezone.utc)
     for ref in listing.get("messages", []):
         msg = service.users().messages().get(userId="me", id=ref["id"], format="full").execute()
         for part in msg.get("payload", {}).get("parts", []):
             if part.get("mimeType") == "text/calendar":
                 ev = parse_ics(_decode_part(part))
-                if ev:
+                if ev and _event_is_future(ev.start, now):
                     events.append(ev)
     return events

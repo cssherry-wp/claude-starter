@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from planner.collectors.gmail import (
-    CalendarEvent, fetch_accomplishments, fetch_calls, parse_ics,
+    CalendarEvent, _event_is_future, fetch_accomplishments, fetch_calls, parse_ics,
 )
 
 
@@ -61,3 +61,18 @@ def test_parse_ics_extracts_event() -> None:
 def test_parse_ics_all_day_returns_none() -> None:
     ics = "BEGIN:VEVENT\nSUMMARY:Holiday\nDTSTART;VALUE=DATE:20260625\nEND:VEVENT"
     assert parse_ics(ics) is None
+
+
+_NOW = datetime(2026, 6, 23, tzinfo=timezone.utc)
+
+
+def test_event_is_future_future_utc() -> None:
+    assert _event_is_future("20990101T120000Z", _NOW) is True
+
+
+def test_event_is_future_past_utc() -> None:
+    assert _event_is_future("20000101T120000Z", _NOW) is False
+
+
+def test_event_is_future_unparseable_is_lenient() -> None:
+    assert _event_is_future("garbage", _NOW) is True
