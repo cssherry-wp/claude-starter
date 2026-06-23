@@ -143,22 +143,32 @@ a recent daily note present.
 
 ### 5.2 Obsidian integration layer
 
-A thin `obsidian.py` abstracts how the tool talks to the vault, with two modes:
+A thin `obsidian.py` abstracts how the tool talks to the vault. The chosen stack is the
+[`obsidian-local-rest-api`](https://github.com/coddingtonbear/obsidian-local-rest-api)
+plugin fronted by the [`mcp-obsidian`](https://github.com/MarkusPfundstein/mcp-obsidian)
+MCP server (`uvx mcp-obsidian`; env `OBSIDIAN_API_KEY`, `OBSIDIAN_HOST` default
+`127.0.0.1`, `OBSIDIAN_PORT` default `27124`).
 
-- **Preferred — Obsidian MCP / Local REST API.** When the Obsidian Local REST API
-  plugin (and, for `claude -p` synthesis, an Obsidian MCP server) is available, the tool
-  expands the Daily template and reads/writes notes through that API. This is robust for
-  scheduled runs and avoids stealing window focus. *No Obsidian MCP is connected in this
-  environment yet, so enabling it is a setup step (install the Local REST API plugin,
-  configure the endpoint/token, optionally register the MCP server).*
-- **Fallback — `obsidian://` URI + direct filesystem.** Expand the template via
-  `obsidian://open?vault=<vault>&file=zz-Templates%2FDaily` and read/write note files on
-  disk. Works without extra plugins but requires Obsidian running and focused for
-  template expansion.
+- **Read/write via REST API (preferred for note I/O).** The plugin/MCP exposes
+  `list_files_in_vault`, `list_files_in_dir`, `get_file_contents`, `search`,
+  `patch_content` (insert relative to a heading — used to inject under `## Notes` and to
+  update project `## Status`/`## Timeline`), `append_content`, and `delete_file`. The
+  planner uses these to read recent notes, search the vault, and write/patch the daily
+  and weekly notes robustly, without stealing window focus.
+- **Template expansion still needs the `obsidian://` URI.** The REST API/MCP can read a
+  template's text but **cannot run Templater**, so resolving the Daily template's
+  Templater logic uses `obsidian://open?vault=<vault>&file=zz-Templates%2FDaily` (or a
+  small Python port of the static parts when Obsidian is unavailable, e.g. unattended
+  runs).
 
-`config.yaml` selects the mode (`obsidian.mode: mcp | uri`); collectors and renderers
-call `obsidian.py` and stay agnostic to which is active. Choosing the default mode and
-confirming MCP availability for unattended runs is a planning item (§12).
+`config.yaml` selects the I/O mode (`obsidian.mode: mcp | filesystem`); collectors and
+renderers call `obsidian.py` and stay agnostic to which is active.
+
+*Status in this environment:* `uvx` is installed; the Local REST API is not yet running
+(plugin not enabled / Obsidian closed), so the MCP server cannot connect until the
+plugin is enabled, an API key is generated, and the server is registered. The
+`OBSIDIAN_API_KEY` is a secret and must live in user/local MCP config or an env var —
+never committed.
 
 ## 6. Behavior
 
@@ -224,7 +234,8 @@ confirming MCP availability for unattended runs is a planning item (§12).
 - `vault`: vault path, `vault_name` (for the `obsidian://` URI, e.g. `szhou`),
   `templates_dir`, `projects_dir` (`00-InProgress`), `daily_output_dir`,
   `weekly_output_dir`, optional rolling todo/follow-up file paths
-- `obsidian`: `mode` (`mcp` | `uri`); for `mcp`, the Local REST API endpoint + token
+- `obsidian`: `mode` (`mcp` | `filesystem`) for note I/O; for `mcp`, the Local REST API
+  host/port (token via the `OBSIDIAN_API_KEY` env/MCP config, never in this file)
 - `llm`: `backend` (`claude` | `local`); for `claude`, the command (default `claude`)
   and flags; for `local`, the model name + endpoint/command (e.g. Ollama model + host)
 
@@ -279,8 +290,7 @@ relying on the `obsidian://` URI for `mode: uri`.
 - Recommended local model + runtime (e.g. Ollama model choice) and the prompt/output
   contract that keeps synthesis results consistent across the `claude` and `local`
   backends.
-- Default Obsidian integration mode (§5.2): whether to ship `mcp` (Local REST API +
-  Obsidian MCP server, which must first be installed/connected) or the `obsidian://` URI
-  fallback, and how each behaves for unattended/scheduled runs that need Obsidian
-  running. Includes the exact template-expansion trigger (plain `open` vs Advanced URI /
-  Templater / REST API call).
+- Default Obsidian I/O mode (§5.2): `mcp` (mcp-obsidian + Local REST API) vs
+  `filesystem`, and behavior for unattended/scheduled runs. Plus the template-expansion
+  path when Obsidian is closed (URI requires it running; a static Python port is the
+  offline fallback) — REST API/MCP cannot run Templater.
