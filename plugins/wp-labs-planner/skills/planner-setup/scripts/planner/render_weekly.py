@@ -37,6 +37,25 @@ def _highlights_block(synthesis: dict) -> str:
         f"- {str(h).strip()}" for h in synthesis.get("highlights", []) if str(h).strip())
 
 
+def _open_tasks_block(synthesis: dict) -> str:
+    """Build the frozen per-project open-task block: status bullets then tasks."""
+    status_by_name = {p["name"]: p for p in synthesis.get("projects", []) if p.get("name")}
+    lines: list[str] = []
+    for group in synthesis.get("groups", []):
+        name = group.get("project", "Unsorted")
+        lines.append(f"### [[00-{name}|{name}]]")
+        info = status_by_name.get(name, {})
+        if str(info.get("status", "")).strip():
+            lines.append(f"- **Status:** {info['status']}")
+        if str(info.get("timeline_assessment", "")).strip():
+            lines.append(f"- **Timeline:** {info['timeline_assessment']}")
+        for task in _ordered_tasks(group.get("tasks", [])):
+            emoji = priority_emoji(task.get("priority", ""))
+            lines.append(f"- [ ] {task.get('text', '').strip()} {emoji}".rstrip())
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def _snapshot_block(synthesis: dict) -> str:
     """Build the frozen per-project task snapshot, urgent tasks first."""
     lines: list[str] = []

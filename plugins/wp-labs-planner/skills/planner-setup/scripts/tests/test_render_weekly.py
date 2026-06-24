@@ -8,6 +8,7 @@ from planner.config import load_config
 from planner.obsidian import FilesystemVault
 from planner.render_weekly import (
     _highlights_block,
+    _open_tasks_block,
     build_weekly_body,
     load_default_weekly_template,
     render_weekly,
@@ -25,6 +26,31 @@ def test_highlights_block_renders_bullets() -> None:
 def test_highlights_block_empty_when_absent() -> None:
     assert _highlights_block({}) == ""
     assert _highlights_block({"highlights": ["", "  "]}) == ""
+
+
+def test_open_tasks_block_has_status_bullets_then_ordered_tasks() -> None:
+    synthesis = {
+        "projects": [{"name": "VIP", "status": "shipped beta", "timeline_assessment": "on track"}],
+        "groups": [{"project": "VIP", "tasks": [
+            {"text": "low one", "priority": "low"},
+            {"text": "urgent one", "priority": "highest"},
+        ]}],
+    }
+    block = _open_tasks_block(synthesis)
+    assert "### [[00-VIP|VIP]]" in block
+    assert "- **Status:** shipped beta" in block
+    assert "- **Timeline:** on track" in block
+    # status bullets precede the tasks; urgent precedes low
+    assert block.index("**Status:**") < block.index("urgent one")
+    assert block.index("urgent one") < block.index("low one")
+
+
+def test_open_tasks_block_omits_blank_status() -> None:
+    synthesis = {"projects": [{"name": "VIP"}],
+                 "groups": [{"project": "VIP", "tasks": [{"text": "t", "priority": "high"}]}]}
+    block = _open_tasks_block(synthesis)
+    assert "**Status:**" not in block and "**Timeline:**" not in block
+    assert "- [ ] t" in block
 
 
 def test_build_weekly_body_orders_urgent_first() -> None:
