@@ -28,6 +28,20 @@ def test_build_notes_block_has_event_sections_but_not_tasks() -> None:
     assert "- [ ] follow up" not in block
 
 
+def test_build_notes_block_renders_people_section() -> None:
+    synthesis = {
+        "calls": [{"title": "Demo Hour", "time": "18:00", "project": "#project/VIP",
+                   "people": ["#wpl/sherry", "#vip/ray_rouleau"], "previous_summary": ""}],
+        "accomplishments_md": "", "learnings_md": "", "new_tasks": [],
+    }
+    block = build_notes_block(synthesis)
+    assert "### Demo Hour #project/VIP" in block  # tags no longer on the heading
+    assert "#### People for Demo Hour" in block
+    assert "- #wpl/sherry" in block and "- #vip/ray_rouleau" in block
+    # people appear after the time, before any summary
+    assert block.index("- 18:00") < block.index("#### People for Demo Hour")
+
+
 def test_render_daily_injects(tmp_path: Path) -> None:
     daily = tmp_path / "zz-Sherry_Daily"
     daily.mkdir()

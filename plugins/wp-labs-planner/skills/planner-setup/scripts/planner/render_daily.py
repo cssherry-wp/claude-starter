@@ -12,11 +12,14 @@ def build_notes_block(synthesis: dict) -> str:
     parts: list[str] = []
     for call in synthesis.get("calls", []):
         title = call.get("title", "Event")
-        heading = [title, call.get("project", ""), call.get("people", "")]
-        parts.append("### " + " ".join(part for part in heading if part))
+        parts.append(f"### {title} {call.get('project', '')}".rstrip())
         time = call.get("time", "").strip()
         if time:
             parts.append(f"- {time}")
+        people = call.get("people") or []
+        if people:
+            parts.append(f"#### People for {title}")
+            parts.extend(f"- {tag}" for tag in people)
         summary = call.get("previous_summary", "").strip()
         if summary:
             parts.append(f"#### Relevant previous summary for {title}")

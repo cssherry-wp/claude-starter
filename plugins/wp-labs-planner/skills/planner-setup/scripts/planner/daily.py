@@ -133,7 +133,7 @@ def _merge_calls(fetched: list[dict], llm_calls: list[dict],
             "title": event.get("title", ""),
             "time": event.get("time", ""),
             "project": extra.get("project", ""),
-            "people": " ".join(tags),
+            "people": tags,
             "previous_summary": event.get("summary") or extra.get("previous_summary", ""),
         })
     return merged
