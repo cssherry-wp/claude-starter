@@ -30,7 +30,7 @@ GROUP BY filter(tags, (t) => startswith(t, "#project/"))[0] AS Project
 ```dataview
 TASK
 FROM -"zz-Templates"
-WHERE status = "/" OR status = "\"
+WHERE status = "/" OR status = "\\"
 SORT choice(contains(text, "🔺"), 0, choice(contains(text, "⏫"), 1, choice(contains(text, "🔼"), 2, choice(contains(text, "🔽"), 3, choice(contains(text, "⏬"), 4, 5)))))
 GROUP BY filter(tags, (t) => startswith(t, "#project/"))[0] AS Project
 ```
@@ -40,7 +40,7 @@ GROUP BY filter(tags, (t) => startswith(t, "#project/"))[0] AS Project
 
 ## References
 ```dataview
-TABLE file.ctime AS "Created"
+TABLE file.ctime AS "Created", file.mtime AS "Edited"
 FROM -"zz-Templates"
 WHERE file.cday >= date("{{week_start}}") AND file.cday <= date("{{week_end}}")
 SORT file.ctime DESC

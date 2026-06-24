@@ -37,10 +37,12 @@ def test_open_tasks_block_has_status_bullets_then_ordered_tasks() -> None:
             {"text": "urgent one", "priority": "highest"},
         ]}],
     }
-    block = _open_tasks_block(synthesis)
+    block = _open_tasks_block(synthesis, ["VIP"])
     assert "### [[00-VIP|VIP]]" in block
     assert "- **Status:** shipped beta" in block
     assert "- **Timeline:** on track" in block
+    # tasks are plain '- TODO' bullets, never duplicated as '- [ ]' checkboxes
+    assert "- TODO urgent one" in block and "- [ ]" not in block
     # status bullets precede the tasks; urgent precedes low
     assert block.index("**Status:**") < block.index("urgent one")
     assert block.index("urgent one") < block.index("low one")
@@ -49,9 +51,24 @@ def test_open_tasks_block_has_status_bullets_then_ordered_tasks() -> None:
 def test_open_tasks_block_omits_blank_status() -> None:
     synthesis = {"projects": [{"name": "VIP"}],
                  "groups": [{"project": "VIP", "tasks": [{"text": "t", "priority": "high"}]}]}
-    block = _open_tasks_block(synthesis)
+    block = _open_tasks_block(synthesis, ["VIP"])
     assert "**Status:**" not in block and "**Timeline:**" not in block
-    assert "- [ ] t" in block
+    assert "- TODO t" in block
+
+
+def test_open_tasks_block_shows_all_projects_and_groups_unsorted() -> None:
+    synthesis = {
+        "projects": [{"name": "Quiet", "status": "steady"}],
+        "groups": [{"project": "Stray", "tasks": [{"text": "orphan task", "priority": "high"}]}],
+    }
+    # Quiet has no tasks but is a real folder project; Stray is not a folder project.
+    block = _open_tasks_block(synthesis, ["Quiet"])
+    assert "### [[00-Quiet|Quiet]]" in block       # shown despite no tasks
+    assert "- **Status:** steady" in block
+    assert "### Unsorted" in block                 # plain header, not a vault link
+    assert "[[00-Unsorted" not in block
+    assert "- TODO orphan task" in block
+    assert block.index("### [[00-Quiet|Quiet]]") < block.index("### Unsorted")
 
 
 def test_learnings_block_links_to_source_daily() -> None:
@@ -61,6 +78,15 @@ def test_learnings_block_links_to_source_daily() -> None:
         {"text": "  ", "source": "2026-06-22"},
     ]})
     assert block == "- Cache cut latency ([[2026-06-23]])\n- Follow up with vendor"
+
+
+def test_learnings_block_links_to_parent_header() -> None:
+    block = _learnings_block({"learnings": [
+        {"text": "Cache cut latency", "source": "2026-06-23", "header": "Learnings"},
+        {"text": "No header here", "source": "2026-06-22", "header": ""},
+    ]})
+    assert block == (
+        "- Cache cut latency ([[2026-06-23#Learnings]])\n- No header here ([[2026-06-22]])")
 
 
 def test_build_weekly_body_orders_urgent_first() -> None:
@@ -137,6 +163,16 @@ def test_load_default_weekly_template_has_expected_headings() -> None:
     assert template.index("## Completed this week") < template.index("## Cancelled this week")
 
 
+def test_default_weekly_template_query_fixes() -> None:
+    template = load_default_weekly_template()
+    # In-progress query escapes the backslash status marker so Dataview can parse it,
+    assert r'status = "/" OR status = "\\"' in template
+    # and the old unescaped lone-backslash form (which broke parsing) is gone.
+    assert 'status = "\\"' not in template  # i.e. status = "\" is absent
+    # References surfaces both created and edited times
+    assert 'file.ctime AS "Created"' in template and 'file.mtime AS "Edited"' in template
+
+
 def test_update_project_section_creates_and_prepends() -> None:
     content = "# A5\n## Summary\n\n## TODO\n- [ ] x\n"
     out = update_project_section(content, "Status", "made progress", date(2026, 6, 26))
@@ -152,14 +188,16 @@ def test_update_project_section_ignores_heading_prefix_collision() -> None:
     assert "## Status updates\n- noise" in out  # prefix-collision heading untouched
 
 
-def test_build_weekly_body_renders_only_grouped_projects() -> None:
+def test_build_weekly_body_renders_all_projects_with_summaries() -> None:
     synthesis = {
-        "projects": [{"name": "Ghost", "status": "orphan"}, {"name": "VIP", "status": "ok"}],
+        "projects": [{"name": "Quiet", "status": "steady"}, {"name": "VIP", "status": "ok"}],
         "groups": [{"project": "VIP", "tasks": [{"text": "t", "priority": "high"}]}],
     }
-    body = build_weekly_body(synthesis, date(2026, 6, 24))
-    assert "[[00-VIP|VIP]]" in body  # VIP has a task group
-    assert "Ghost" not in body       # no group -> not rendered
+    # project_names drives the grouping; both projects render even though Quiet has no tasks.
+    body = build_weekly_body(synthesis, date(2026, 6, 24), project_names=["Quiet", "VIP"])
+    assert "### [[00-Quiet|Quiet]]" in body and "- **Status:** steady" in body
+    assert "### [[00-VIP|VIP]]" in body
+    assert body.index("### [[00-Quiet|Quiet]]") < body.index("### [[00-VIP|VIP]]")
 
 
 def test_render_weekly_writes_and_updates(tmp_path: Path) -> None:
