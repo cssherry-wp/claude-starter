@@ -120,3 +120,23 @@ def summarize_changes(cfg: LlmCfg, prompt_template: str, old: str, new: str) -> 
     """
     prompt = prompt_template.replace("{old}", old).replace("{new}", new)
     return run_backend(cfg, prompt).strip()
+
+
+def extract_decisions(cfg: LlmCfg, prompt_template: str, project: str,
+                      materials: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extract decision summaries (with source note/header) from project material.
+
+    Args:
+        cfg: LLM configuration.
+        prompt_template: Template string with {project} and {materials} placeholders.
+        project: The project name to fill in the template.
+        materials: List of dicts with "note", "header", and "text" keys.
+
+    Returns:
+        List of dicts with "decision", "note", and "header" keys.
+    """
+    prompt = (prompt_template.replace("{project}", project)
+              .replace("{materials}", json.dumps(materials, indent=2, default=str)))
+    result = extract_json(run_backend(cfg, prompt))
+    decisions = result.get("decisions", [])
+    return decisions if isinstance(decisions, list) else []
