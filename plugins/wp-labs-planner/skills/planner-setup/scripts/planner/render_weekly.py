@@ -3,39 +3,37 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from pathlib import Path
 
 from planner.collectors.vault import Project
 from planner.config import Config
-from planner.errors import priority_emoji, priority_rank
+from planner.errors import VaultIOError, priority_emoji, priority_rank
 from planner.obsidian import Vault
 
-WEEKLY_DATAVIEW = (
-    "```dataview\n"
-    "TASK\n"
-    'FROM -"zz-Templates"\n'
-    'WHERE !completed AND contains(string(tags), "#project/")\n'
-    "GROUP BY filter(tags, (t) => startswith(t, \"#project/\"))[0] AS Project\n"
-    "```\n"
-)
+_WEEK_TOKEN = "{{week}}"
+
+
+def load_default_weekly_template() -> str:
+    """Return the packaged weekly skeleton used when the vault has no Weekly.md."""
+    return (Path(__file__).resolve().parent.parent / "templates" / "Weekly.md").read_text(
+        encoding="utf-8")
+
+
+def _vault_weekly_template(vault: Vault, cfg: Config) -> str | None:
+    """Return the vault's customized weekly template, or None if it has none."""
+    try:
+        return vault.read(f"{cfg.vault.templates_dir}/Weekly.md")
+    except VaultIOError:
+        return None
 
 
 def _ordered_tasks(tasks: list[dict]) -> list[dict]:
     return sorted(tasks, key=lambda t: priority_rank(t.get("priority", "")))
 
 
-def build_weekly_body(synthesis: dict, gen_day: date) -> str:
-    """Build the weekly note: frontmatter, live Dataview, then static snapshot.
-
-    Args:
-        synthesis: Synthesis dict containing projects and groups with tasks.
-        gen_day: The date for which the weekly overview is generated.
-
-    Returns:
-        The complete weekly note body with frontmatter, dataview, and snapshot.
-    """
-    lines = ["---", "tags:", "- Weekly", "---", "",
-             f"# Week overview — {gen_day.isoformat()}", "", WEEKLY_DATAVIEW,
-             "## Snapshot (frozen)", ""]
+def _snapshot_block(synthesis: dict) -> str:
+    """Build the frozen per-project task snapshot, urgent tasks first."""
+    lines: list[str] = []
     for group in synthesis.get("groups", []):
         name = group.get("project", "Unsorted")
         lines.append(f"### [[00-{name}|{name}]]")
@@ -43,13 +41,43 @@ def build_weekly_body(synthesis: dict, gen_day: date) -> str:
             emoji = priority_emoji(task.get("priority", ""))
             lines.append(f"- [ ] {task.get('text', '').strip()} {emoji}".rstrip())
         lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def _statuses_block(synthesis: dict) -> str:
+    """Build the one-line-per-project status list (skipping nameless projects)."""
     statuses = [p for p in synthesis.get("projects", []) if p.get("name")]
-    if statuses:
-        lines.append("## Project statuses")
-        for proj in statuses:
-            name = proj["name"]
-            lines.append(f"- **[[00-{name}|{name}]]** — {proj.get('status', '')}")
-    return "\n".join(lines) + "\n"
+    return "\n".join(
+        f"- **[[00-{p['name']}|{p['name']}]]** — {p.get('status', '')}" for p in statuses)
+
+
+def _inject_section(text: str, heading: str, block: str) -> str:
+    """Insert *block* directly under the '## heading' line, appending the section if absent."""
+    if not block:
+        return text
+    match = re.search(rf"^## {re.escape(heading)}[ \t]*$", text, re.MULTILINE)
+    if match is None:
+        sep = "" if text.endswith("\n") else "\n"
+        return f"{text}{sep}\n## {heading}\n{block}\n"
+    return f"{text[:match.end()]}\n{block}{text[match.end():]}"
+
+
+def build_weekly_body(synthesis: dict, gen_day: date, template: str | None = None) -> str:
+    """Fill the weekly template skeleton with the snapshot and project statuses.
+
+    Args:
+        synthesis: Synthesis dict containing projects and groups with tasks.
+        gen_day: The date for which the weekly overview is generated.
+        template: The skeleton to fill; defaults to the packaged template.
+
+    Returns:
+        The complete weekly note body, regenerated deterministically each run.
+    """
+    skeleton = template if template is not None else load_default_weekly_template()
+    body = skeleton.replace(_WEEK_TOKEN, gen_day.isoformat())
+    body = _inject_section(body, "Snapshot (frozen)", _snapshot_block(synthesis))
+    body = _inject_section(body, "Project statuses", _statuses_block(synthesis))
+    return body if body.endswith("\n") else body + "\n"
 
 
 def update_project_section(
@@ -94,7 +122,8 @@ def render_weekly(vault: Vault, cfg: Config, synthesis: dict,
     """
     touched: list[str] = []
     weekly_path = f"{cfg.vault.weekly_output_dir}/{gen_day.isoformat()}-week-overview.md"
-    vault.write(weekly_path, build_weekly_body(synthesis, gen_day))
+    template = _vault_weekly_template(vault, cfg) or load_default_weekly_template()
+    vault.write(weekly_path, build_weekly_body(synthesis, gen_day, template))
     touched.append(weekly_path)
     status_by_name = {p["name"]: p for p in synthesis.get("projects", []) if p.get("name")}
     for proj in projects:
