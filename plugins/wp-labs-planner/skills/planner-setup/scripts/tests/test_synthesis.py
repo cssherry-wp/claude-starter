@@ -50,3 +50,17 @@ def test_run_backend_empty_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(syn.subprocess, "run", lambda *a, **k: P())
     with pytest.raises(SynthesisError):
         syn.run_backend(LlmCfg("claude", "claude", ["-p"], "", ""), "hi")
+
+
+def test_summarize_changes_fills_and_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def fake(cfg, prompt):
+        seen.append(prompt)
+        return "  Added decision X.  "
+
+    monkeypatch.setattr(syn, "run_backend", fake)
+    cfg = LlmCfg("claude", "claude", ["-p"], "", "")
+    out = syn.summarize_changes(cfg, "OLD:{old}\nNEW:{new}", "old text", "new text")
+    assert out == "Added decision X."
+    assert "old text" in seen[0] and "new text" in seen[0]
