@@ -141,6 +141,15 @@ def test_backfill_includes_duration_when_started_known() -> None:
     assert vault.patches[0][2] == "- [x] Create feedback ✅ 2026-01-09 (12m)"
 
 
+def test_backfill_formats_hours_and_minutes_for_long_duration() -> None:
+    vault = RecordingVault()
+    items = [CompletedItem(text="Long task",
+                           completed_at=_dt(2026, 1, 9, 6, 0, 0),
+                           started_at=_dt(2026, 1, 9, 4, 30, 0))]
+    apply_completed_items(vault, "daily", items, index={})
+    assert vault.patches[0][2] == "- [x] Long task ✅ 2026-01-09 (1h 30m)"
+
+
 def test_backfill_skips_already_documented() -> None:
     vault = RecordingVault()
     items = [CompletedItem(text="Done it", completed_at=_dt(2026, 1, 5, 14, 1, 52), started_at=None)]
