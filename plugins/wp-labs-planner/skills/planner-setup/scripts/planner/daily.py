@@ -15,7 +15,7 @@ from planner.config import Config, load_config
 from planner.errors import VaultIOError
 from planner.gitcommit import commit_files, is_git_repo
 from planner.obsidian import Vault, make_vault
-from planner.people import match_people_tags, parse_people_tags
+from planner.people import match_people_tags, new_person_tags, parse_people_tags
 from planner.render_daily import render_daily
 from planner.synthesis import synthesize_daily
 
@@ -79,12 +79,33 @@ def _gather_daily(vault: Vault, cfg: Config, today: date) -> dict:
     }
 
 
+# Category prefix for attendees not yet in the People template; recategorize by hand.
+_NEW_PERSON_PREFIX = "unsorted"
+
+
+def _people_path(cfg: Config) -> str:
+    return f"{cfg.vault.templates_dir}/People.md"
+
+
 def _people_tags(vault: Vault, cfg: Config) -> list[str]:
     """Load the People template's hashtags from the vault, or [] if unavailable."""
     try:
-        return parse_people_tags(vault.read(f"{cfg.vault.templates_dir}/People.md"))
+        return parse_people_tags(vault.read(_people_path(cfg)))
     except VaultIOError:
         return []
+
+
+def _resolve_people(vault: Vault, cfg: Config, fetched_calls: list[dict]) -> list[str]:
+    """Return People tags, appending any new named attendees to the template first."""
+    tags = _people_tags(vault, cfg)
+    attendees = [a for call in fetched_calls for a in call.get("attendees", [])]
+    new = new_person_tags(attendees, tags, _NEW_PERSON_PREFIX)
+    if new:
+        try:
+            vault.append(_people_path(cfg), "\n".join(new) + "\n")
+        except Exception as exc:  # noqa: BLE001 — never abort the run over a template write
+            log.warning("could not add new people to %s: %s", _people_path(cfg), exc)
+    return tags + new
 
 
 def _merge_calls(fetched: list[dict], llm_calls: list[dict],
@@ -133,8 +154,8 @@ def run_daily(cfg: Config, today: date) -> str:
     synthesis = synthesize_daily(cfg.llm, _load_prompt("daily_synthesis.md"), payload)
     fetched_calls = payload.get("calls") or []
     if isinstance(fetched_calls, list):
-        synthesis["calls"] = _merge_calls(
-            fetched_calls, synthesis.get("calls", []), _people_tags(vault, cfg))
+        people = _resolve_people(vault, cfg, fetched_calls)
+        synthesis["calls"] = _merge_calls(fetched_calls, synthesis.get("calls", []), people)
     path = render_daily(vault, cfg, synthesis, today)
     sheet = payload.get("sheet", {"open": [], "completed": []})
     index = render_tasks.existing_task_index(vault)

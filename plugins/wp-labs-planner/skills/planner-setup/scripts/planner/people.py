@@ -46,3 +46,35 @@ def match_people_tags(attendees: list[str], people_tags: list[str]) -> list[str]
         if any(slug_tokens <= tokens for tokens in attendee_tokens) and tag not in matched:
             matched.append(tag)
     return matched
+
+
+def _looks_like_name(text: str) -> bool:
+    """Return True for a plausible "First Last" person name (2-3 capitalized words)."""
+    tokens = text.split()
+    return 2 <= len(tokens) <= 3 and all(t.isalpha() and t[0].isupper() for t in tokens)
+
+
+def new_person_tags(attendees: list[str], existing_tags: list[str], prefix: str) -> list[str]:
+    """Return new '#{prefix}/{slug}' tags for name-like attendees not already known.
+
+    Skips attendees that don't look like a person name (e.g. "organized by
+    PLACEHOLDER") and those already covered by an existing tag. Deduped, in
+    first-seen order.
+
+    Args:
+        attendees: Attendee name strings from calendar events.
+        existing_tags: Tags already present in the People template.
+        prefix: Category prefix for new tags (the part before '/').
+
+    Returns:
+        New tags to append to the People template.
+    """
+    new: list[str] = []
+    for attendee in attendees:
+        name = attendee.strip()
+        if not _looks_like_name(name) or match_people_tags([name], existing_tags):
+            continue
+        tag = f"#{prefix}/{'_'.join(name.split()).lower()}"
+        if tag not in new:
+            new.append(tag)
+    return new

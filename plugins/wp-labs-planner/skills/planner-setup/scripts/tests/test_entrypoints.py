@@ -34,6 +34,22 @@ def test_merge_calls_adds_people_tags_from_attendees() -> None:
     assert merged[0]["people"] == "#wpl/sherry"
 
 
+def test_resolve_people_appends_new_attendees_to_template(tmp_path: Path) -> None:
+    (tmp_path / "zz-Templates").mkdir()
+    people = tmp_path / "zz-Templates" / "People.md"
+    people.write_text("#wpl/sherry\n")
+    cfg = load_config(str(FIXTURE))
+    cfg.vault.path = str(tmp_path)
+    cfg.obsidian.mode = "filesystem"
+    v = FilesystemVault(str(tmp_path))
+    calls = [{"attendees": ["Sherry Zhou", "John Doe", "organized by PLACEHOLDER"]}]
+    tags = daily_mod._resolve_people(v, cfg, calls)
+    assert "#unsorted/john_doe" in tags
+    body = people.read_text()
+    assert "#unsorted/john_doe" in body  # new person persisted to the template
+    assert body.count("#wpl/sherry") == 1  # known person not duplicated
+
+
 def test_run_daily_apply_failure_does_not_abort(tmp_path: Path, monkeypatch) -> None:
     """run_daily reaches the commit check even when an apply call raises VaultIOError."""
     (tmp_path / "zz-Sherry_Daily").mkdir()
