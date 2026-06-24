@@ -83,36 +83,39 @@ def _iter_markdown(vault: Vault, cfg: Config, dirpath: str) -> list[str]:
     return out
 
 
+def _scan_open_tasks(path: str, content: str) -> list[OpenTask]:
+    """Return unchecked `- [ ]` tasks in one document, tagged with their `## heading`."""
+    tasks: list[OpenTask] = []
+    heading = ""
+    in_code_fence = False
+    for line in content.splitlines():
+        if line.lstrip().startswith("```"):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
+        if line.startswith("## "):
+            heading = line[3:].strip()
+        elif line.lstrip().startswith("- [ ]"):
+            tasks.append(OpenTask(text=line.strip()[5:].strip(), source_path=path, heading=heading))
+    return tasks
+
+
 def open_tasks(vault: Vault, cfg: Config) -> list[OpenTask]:
-    """Scan project notes for unchecked `- [ ]` tasks, excluding templates.
+    """Scan project notes and notes_dir for unchecked `- [ ]` tasks, excluding templates.
 
     Args:
         vault: The vault to read from.
-        cfg: Configuration containing projects_dir.
+        cfg: Configuration containing projects_dir and (optional) notes_dir.
 
     Returns:
-        List of OpenTask objects found in project notes.
+        List of OpenTask objects found across project notes and notes_dir.
     """
+    sources: list[tuple[str, str]] = [(p.path, p.content) for p in list_projects(vault, cfg)]
+    sources += [(n.path, n.content) for n in notes_under(vault, cfg)]
     tasks: list[OpenTask] = []
-    for proj in list_projects(vault, cfg):
-        heading = ""
-        in_code_fence = False
-        for line in proj.content.splitlines():
-            if line.lstrip().startswith("```"):
-                in_code_fence = not in_code_fence
-                continue
-            if in_code_fence:
-                continue
-            if line.startswith("## "):
-                heading = line[3:].strip()
-            elif line.lstrip().startswith("- [ ]"):
-                tasks.append(
-                    OpenTask(
-                        text=line.strip()[5:].strip(),
-                        source_path=proj.path,
-                        heading=heading,
-                    )
-                )
+    for path, content in sources:
+        tasks.extend(_scan_open_tasks(path, content))
     return tasks
 
 
@@ -203,3 +206,13 @@ def recent_notes(
             RecentNote(path=p, mtime=vault.stat_mtime(p), content=vault.read(p))
         )
     return notes
+
+
+def notes_under(vault: Vault, cfg: Config) -> list[RecentNote]:
+    """Return a RecentNote for each markdown file under notes_dir (empty if unset)."""
+    if not cfg.vault.notes_dir:
+        return []
+    return [
+        RecentNote(path=p, mtime=vault.stat_mtime(p), content=vault.read(p))
+        for p in _iter_markdown(vault, cfg, cfg.vault.notes_dir)
+    ]

@@ -10,6 +10,11 @@ from planner.errors import ConfigError
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 
 
+def test_notes_dir_defaults_to_empty() -> None:
+    cfg = load_config(str(FIXTURE))
+    assert cfg.vault.notes_dir == ""
+
+
 def test_loads_valid_config() -> None:
     cfg = load_config(str(FIXTURE))
     assert cfg.google.planner_address == "sherry+planner@example.com"

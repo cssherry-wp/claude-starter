@@ -56,6 +56,20 @@ def test_open_tasks_ignores_fenced_code_blocks(tmp_path: Path) -> None:
     assert not any("code-block example" in t for t in texts)
 
 
+def test_open_tasks_scans_notes_dir(tmp_path: Path) -> None:
+    cfg = load_config(str(FIXTURE))
+    cfg.vault.path = str(tmp_path)
+    cfg.vault.projects_dir = "00-InProgress"
+    cfg.vault.notes_dir = "Notes"
+    (tmp_path / "00-InProgress").mkdir()
+    (tmp_path / "Notes").mkdir()
+    (tmp_path / "Notes" / "ideas.md").write_text("## Backlog\n- [ ] note task\n")
+    vault = FilesystemVault(str(tmp_path))
+
+    texts = [t.text for t in open_tasks(vault, cfg)]
+    assert "note task" in texts
+
+
 def test_recent_notes_includes_yesterday(tmp_path: Path) -> None:
     v = build_vault(tmp_path)
     notes = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path=None)

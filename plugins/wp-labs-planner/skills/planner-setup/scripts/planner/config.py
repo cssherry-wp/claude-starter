@@ -40,6 +40,7 @@ class VaultCfg:
     weekly_output_dir: str
     todo_files: list[str]
     git_commit: bool
+    notes_dir: str = ""
 
 
 @dataclass
@@ -125,6 +126,7 @@ def _build_vault(v: dict[str, Any]) -> VaultCfg:
         weekly_output_dir=v.get("weekly_output_dir", "zz-Sherry_Weekly"),
         todo_files=_as_list(v.get("todo_files")),
         git_commit=bool(v.get("git_commit", True)),
+        notes_dir=v.get("notes_dir", ""),
     )
 
 
