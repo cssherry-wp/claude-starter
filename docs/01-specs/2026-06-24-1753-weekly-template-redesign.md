@@ -43,20 +43,25 @@ Python) plus live, project-grouped Dataview queries that always reflect current 
 | 3 | `## Open tasks (current)` | live | All open tasks (`!completed AND status != "-"`); grouped by project, sorted by priority |
 | 4 | `## In progress this week` | live | `status = "/" OR status = "\"`; grouped by project, sorted by priority |
 | 5 | `## Learnings & Follow-ups` | frozen | LLM rollup of the week's daily-note learnings, each linked to its source daily |
-| 6 | `## References` | live | Files **created** this week (`file.cday` in week range); grouped by `#project/` tag with an "Ungrouped" bucket |
+| 6 | `## References` | live | Files **created** this week (`file.cday` in week range); ungrouped, sorted by creation time (newest first) |
 | 7 | `## Completed this week` | live | `completed AND completion` in week range; grouped by project, sorted by priority |
 | 8 | `## Cancelled this week` | live | `status = "-"` with ❌ date (fallback `file.day`) in week range; grouped by project, sorted by priority |
 
 Removed sections: `## Snapshot (frozen)`, `## From the weekly planner`, standalone
 `## Project statuses` (folded into section 2).
 
-## Grouping & sorting (all live queries)
+## Grouping & sorting (live task queries)
+
+Applies to the four task queries (Open tasks (current), In progress, Completed, Cancelled):
 
 - **Group by** the project tag: `filter(tags, (t) => startswith(t, "#project/"))[0]`, with an
-  "Ungrouped" fallback for items without a `#project/` tag (and for References, files without one).
+  "Ungrouped" fallback for tasks without a `#project/` tag.
 - **Sort by** priority, highest first. Dataview does not parse Tasks priority natively, so the
   DQL computes a numeric sort key from the priority emoji present in the task text (🔺=0 … ⏬=4,
   none=5). Exact expression pinned in the implementation plan.
+
+**References** is the exception: it is ungrouped and sorted by file creation time
+(`file.cday`/`file.ctime`), newest first.
 
 ## Week range injection
 
