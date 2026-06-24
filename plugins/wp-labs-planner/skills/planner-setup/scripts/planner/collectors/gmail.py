@@ -162,7 +162,10 @@ def parse_tomorrow_calendar(body: str, event_date: date,
     cut = section.lower().find("all-day events")
     if cut != -1:
         section = section[:cut]
-    lines = [ln.strip() for ln in section.splitlines() if ln.strip()]
+    # Strip email/blockquote markers ("> ", "> > ") so quoted bodies parse cleanly;
+    # lines that are only quote markers collapse to empty and are dropped.
+    stripped = (re.sub(r"^\s*(?:>\s?)+", "", ln).strip() for ln in section.splitlines())
+    lines = [ln for ln in stripped if ln]
     time_indexes = [i for i, ln in enumerate(lines) if _TIME_RE.search(ln)]
     events: list[CalendarEvent] = []
     for pos, idx in enumerate(time_indexes):

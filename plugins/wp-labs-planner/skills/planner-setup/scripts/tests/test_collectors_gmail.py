@@ -120,6 +120,24 @@ def test_parse_tomorrow_calendar_absent_section_returns_empty() -> None:
     assert parse_tomorrow_calendar("nothing here", date(2026, 6, 24)) == []
 
 
+def test_parse_tomorrow_calendar_strips_email_quote_markers() -> None:
+    """A quoted/blockquoted email body must not leak '>' markers into the cells."""
+    body = (
+        "> Tomorrow's Calendar\n>\n> Time\n> Event\n> Attendees\n> Relevant bullets\n>\n"
+        "> 1:00–2:00 PM ET\n> Demo Hour\n> Sherry Zhou; organized by PLACEHOLDER\n"
+        "> Likely topics to bring: consolidation, GitHub PR\n"
+        "> review skill and worktree lessons.\n>\n> All-day events\n> Sherry OOO\n"
+    )
+    events = parse_tomorrow_calendar(body, date(2026, 6, 24), ZoneInfo("America/Los_Angeles"))
+    assert len(events) == 1
+    ev = events[0]
+    assert ev.title == "Demo Hour"
+    assert ev.attendees[0] == "Sherry Zhou"
+    assert ">" not in ev.summary
+    assert "Likely topics to bring" in ev.summary
+    assert "review skill and worktree lessons." in ev.summary  # wrapped line rejoined
+
+
 def test_fetch_calls_parses_planner_email_body() -> None:
     import base64
     data = base64.urlsafe_b64encode(_PLANNER_BODY.encode()).decode()
