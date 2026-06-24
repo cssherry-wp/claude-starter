@@ -9,7 +9,7 @@ notes (`## Members`) and maintains one-line descriptions in `People.md`.
 
 ## Problem
 
-`People.md` is a flat list of `#category/first_last` tags with no prose. Project notes list
+`People.md` is a flat list of `#project/first_last` tags with no prose. Project notes list
 members but nothing keeps "who is doing what" current. The weekly run already gathers the
 week's daily notes (and, with `notes_dir`, a notes folder) but does nothing with the people
 mentioned there.
@@ -25,7 +25,7 @@ context under each project's `## Members` section.
 - **Analyzed files:** the files the weekly run reads — this week's daily notes plus any
   `notes_dir` markdown (the payload's `dailies` + `notes`).
 - **People.md:** `{templates_dir}/People.md` (see `daily._people_path`). Sections are non-`#`
-  label lines; each person is a `#category/first_last` tag line.
+  label lines; each person is a `#project/first_last` tag line.
 - **One-liner:** a single sentence describing what a person does / is working on.
 - **Member entry:** in a project note's `## Members` section, a tag line carrying the one-liner,
   with dated in-depth sub-bullets beneath it.
@@ -56,13 +56,14 @@ New inline format, one line per person:
 ```
 ## Members
 - #vip/ray_rouleau — Leads VIP infra; currently driving the migration.
+  - 2026-06-24 — TODO: Finish task
   - 2026-06-24 — Drove the cutover plan; coordinating with the vendor.
   - 2026-06-17 — Kicked off migration design.
 ```
 
 - The member **top line mirrors the People.md one-liner** (upserted/replaced).
 - Each run **prepends a dated in-depth sub-bullet** (`  - <gen_day> — <update>`), newest-first.
-  Re-running on the same `gen_day` **replaces** that day's sub-bullet (idempotent per day).
+  Re-running on the same `gen_day` **replaces** that day's sub-bullet (idempotent per day). If that person is working on something, mark it with TODO. At most add 5 bullets each run
 - A person active on a project but **not yet listed** in `## Members` is **added** here, and
   also added to `People.md` (per the rule above). `## Members` is created if the note lacks it.
 
@@ -76,16 +77,15 @@ The LLM produces language; the renderer does deterministic, testable file mergin
 
 ```jsonc
 "people": [
-  {"tag": "#vip/ray_rouleau", "project": "VIP",
+  {"tag": "#vip/ray_rouleau", 
    "one_liner": "Leads VIP infra; currently driving the migration.",
-   "update": "Drove the cutover plan; coordinating with the vendor."}
+   "VIP": ["TODO: Finish task", "Drove the cutover plan; coordinating with the vendor."]}
 ]
 ```
 
 Instructions: derive people only from `payload.dailies` / `payload.notes`; one entry per
-(person, project) the person is active on; reuse existing tags from `payload.people_template`;
-keep `one_liner` to one sentence; `update` is the in-depth note for this run; when a person is
-new, propose a tag whose category approximates the project name.
+person. For each project the person is on, get a list of their statuses; reuse existing tags from `payload.people_template`;
+keep `one_liner` to one sentence; the in-depth note for this run is added as an array value to the project key; when a person is new, propose a tag whose category approximates the project name, considering the other project tags in the vault.
 
 ### Payload
 
