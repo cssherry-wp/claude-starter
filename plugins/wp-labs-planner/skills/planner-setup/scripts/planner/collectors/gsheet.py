@@ -13,8 +13,9 @@ _LEADING_DASH_RE = re.compile(r"^(?:-\s*)+")
 _ANNOT_RE = re.compile(r"\(([A-Za-z][A-Za-z ]*?):\s*([^)]*)\)")
 _STATUS_TAG_RE = re.compile(r"#status/\S+")
 _PRIORITY_RE = re.compile(r"[🔺⏫🔼🔽⏬]")
-_DATED_SIGNIFIER_RE = re.compile(r"[📅🛫⏳➕✅]\s*\d{4}-\d{2}-\d{2}")
-_CHECKBOX_RE = re.compile(r"-\s*\[[ xX]\]")
+_DATED_SIGNIFIER_RE = re.compile(r"[📅🛫⏳➕✅❌]\s*\d{4}-\d{2}-\d{2}")
+# Checkbox markers: todo ' ', done 'x'/'X', in-progress '/', cancelled '-'.
+_CHECKBOX_RE = re.compile(r"-\s*\[[ xX/-]\]")
 _DATE_FMT = "%m/%d/%Y, %I:%M:%S %p"
 
 

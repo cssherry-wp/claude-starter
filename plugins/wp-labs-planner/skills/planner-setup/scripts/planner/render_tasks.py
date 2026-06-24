@@ -13,9 +13,11 @@ from planner.errors import priority_emoji
 log = logging.getLogger(__name__)
 
 _STATUS_PRIORITY = {"on notice": "high", "waiting": "low"}
+# Obsidian Tasks checkbox markers for non-todo statuses.
+_STATUS_MARKER = {"in progress": "/", "cancelled": "-"}
 _TASK_DQL = (
-    'TABLE WITHOUT ID t.text AS text, file.path AS path, t.completed AS completed '
-    'FROM -"zz-Templates" FLATTEN file.tasks AS t'
+    'TABLE WITHOUT ID t.text AS text, file.path AS path, t.completed AS completed, '
+    't.status AS status FROM -"zz-Templates" FLATTEN file.tasks AS t'
 )
 
 
@@ -30,9 +32,10 @@ def status_slug(status: str) -> str:
 
 
 def open_task_line(item: OpenItem, end: date) -> str:
-    """Build an Obsidian Tasks '- [ ]' line for an open item."""
-    parts = [f"- [ ] {item.text}"]
+    """Build an Obsidian Tasks line for an open item, using the status checkbox marker."""
     status = item.status.lower()
+    marker = _STATUS_MARKER.get(status, " ")
+    parts = [f"- [{marker}] {item.text}"]
     priority = _STATUS_PRIORITY.get(status, "")
     if priority:
         parts.append(priority_emoji(priority))
@@ -52,6 +55,12 @@ class TaskRef:
     path: str
     text: str
     completed: bool
+    marker: str = " "
+
+
+def _is_live(marker: str) -> bool:
+    """Return True for actionable checkbox markers (todo ' ' or in-progress '/')."""
+    return marker in (" ", "/", "")
 
 
 def _row_value(row: dict[str, Any], *keys: str) -> Any:
@@ -82,11 +91,18 @@ def existing_task_index(vault: Any) -> dict[str, TaskRef]:
         text = _row_value(row, "text")
         if not text:
             continue
-        index[normalize_text(str(text))] = TaskRef(
+        key = normalize_text(str(text))
+        ref = TaskRef(
             path=str(_row_value(row, "path") or ""),
             text=str(text),
             completed=bool(_row_value(row, "completed")),
+            marker=str(_row_value(row, "status") or " "),
         )
+        # When a task has several copies (e.g. a cancelled tombstone plus the
+        # live one), keep the live copy so reconciliation targets the active task.
+        existing = index.get(key)
+        if existing is None or (_is_live(ref.marker) and not _is_live(existing.marker)):
+            index[key] = ref
     return index
 
 
@@ -116,28 +132,50 @@ def _ensure_heading(vault: Any, path: str, heading: str) -> None:
     vault.write(path, f"{body}{separator}\n## {heading}\n")
 
 
-def _reconcile(vault: Any, ref: TaskRef, item: OpenItem, end: date) -> None:
-    """Rewrite the matched task line's signifiers in place, preserving checkbox state.
+def _checkbox_marker(line: str) -> str:
+    """Return the single character inside the first '[...]' checkbox, or ' '."""
+    match = re.search(r"\[(.)\]", line)
+    return match.group(1) if match else " "
+
+
+def _cancel_line(line: str, today: date) -> str:
+    """Return *line* with its checkbox flipped to '[-]' and a '❌ <today>' date appended."""
+    cancelled = re.sub(r"\[.\]", "[-]", line, count=1)
+    if "❌" not in cancelled:
+        cancelled = f"{cancelled} ❌ {today.isoformat()}"
+    return cancelled
+
+
+def _supersede_changed(vault: Any, ref: TaskRef, desired: str, key: str, today: date) -> bool:
+    """Cancel a stale open copy of a task so an updated copy can resurface today.
+
+    Locates the matching task line in *ref.path*. If it is still actionable and
+    differs from *desired*, rewrites it as a cancelled tombstone ('[-]' + ❌ date)
+    rather than deleting or editing it in place, preserving task history.
 
     Args:
         vault: Vault object with read() and write() methods.
-        ref: Reference to the existing task.
-        item: The open item to reconcile with.
-        end: The Sunday end date of the week.
+        ref: Reference to the existing task copy.
+        desired: The freshly rendered task line for the current open item.
+        key: The normalized dedup identity of the task (from its raw text).
+        today: Today's date, used as the cancellation date.
+
+    Returns:
+        True if a stale copy was cancelled (caller should resurface *desired*);
+        False if the copy is unchanged or already done/cancelled (leave as-is).
     """
     body = vault.read(ref.path)
     lines = body.splitlines()
-    key = normalize_text(item.text)
-    desired = open_task_line(item, end)
     for i, line in enumerate(lines):
         if "[" not in line or normalize_text(line) != key:
             continue
-        rebuilt = ("- [x]" + desired[len("- [ ]"):]) if "[x]" in line.lower() else desired
-        if rebuilt != line:
-            lines[i] = rebuilt
-            tail = "\n" if body.endswith("\n") else ""
-            vault.write(ref.path, "\n".join(lines) + tail)
-        return
+        if not _is_live(_checkbox_marker(line)) or line == desired:
+            return False
+        lines[i] = _cancel_line(line, today)
+        tail = "\n" if body.endswith("\n") else ""
+        vault.write(ref.path, "\n".join(lines) + tail)
+        return True
+    return False
 
 
 def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: date,
@@ -155,11 +193,11 @@ def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: d
     today_path = f"{daily_dir}/{today.isoformat()}.md"
     new_lines: list[str] = []
     for item in items:
-        ref = index.get(normalize_text(item.text))
-        if ref is None:
-            new_lines.append(open_task_line(item, end))
-        else:
-            _reconcile(vault, ref, item, end)
+        key = normalize_text(item.text)
+        desired = open_task_line(item, end)
+        ref = index.get(key)
+        if ref is None or _supersede_changed(vault, ref, desired, key, today):
+            new_lines.append(desired)
     if new_lines:
         _ensure_heading(vault, today_path, _OPEN_HEADING)
         vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")

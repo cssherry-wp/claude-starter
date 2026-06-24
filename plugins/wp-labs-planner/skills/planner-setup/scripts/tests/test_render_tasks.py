@@ -50,6 +50,18 @@ def test_open_task_line_started_shows_start_date() -> None:
     assert line == "- [ ] Build 🛫 2026-01-09 #status/started"
 
 
+def test_open_task_line_in_progress_uses_slash_marker() -> None:
+    item = OpenItem(text="Build", status="In Progress", carry_over_weeks=0, started_at=None)
+    line = open_task_line(item, date(2026, 6, 28))
+    assert line == "- [/] Build #status/in-progress"
+
+
+def test_open_task_line_cancelled_uses_dash_marker() -> None:
+    item = OpenItem(text="Drop it", status="Cancelled", carry_over_weeks=0, started_at=None)
+    line = open_task_line(item, date(2026, 6, 28))
+    assert line == "- [-] Drop it #status/cancelled"
+
+
 class FakeSearchVault:
     def __init__(self, rows: list[dict], fail: bool = False) -> None:
         self._rows = rows
@@ -116,15 +128,42 @@ def test_apply_open_items_skips_unchanged_existing() -> None:
     assert vault.files["daily/2026-06-20.md"] == "## TODO\n- [ ] New thing\n"  # untouched
 
 
-def test_apply_open_items_reconciles_stale_priority() -> None:
+def test_apply_open_items_supersedes_changed_existing() -> None:
+    """A changed task: cancel the old copy ([-]) and resurface the updated one today."""
     vault = RecordingVault({"daily/2026-06-20.md": "## TODO\n- [ ] Give feedback 🔽 #status/waiting\n"})
     items = [OpenItem(text="Give feedback", status="On Notice", carry_over_weeks=1, started_at=None)]
     index = existing_task_index_stub("give feedback", "daily/2026-06-20.md",
                                      "- [ ] Give feedback 🔽 #status/waiting")
     apply_open_items(vault, "daily", items, date(2026, 6, 24), index=index)
-    assert vault.patches == []  # already exists → not re-appended
-    assert "⏫ 📅 2026-06-28 #status/on-notice" in vault.files["daily/2026-06-20.md"]
-    assert "🔽 #status/waiting" not in vault.files["daily/2026-06-20.md"]
+    # old copy preserved as a cancelled tombstone (not deleted, not edited in place)
+    assert "- [-] Give feedback 🔽 #status/waiting ❌ 2026-06-24" in vault.files["daily/2026-06-20.md"]
+    # updated copy resurfaced under today's Open Items
+    assert vault.patches == [("daily/2026-06-24.md", "Open Items",
+                              "- [ ] Give feedback ⏫ 📅 2026-06-28 #status/on-notice (carried 1w)")]
+
+
+def test_apply_open_items_leaves_already_cancelled_copy() -> None:
+    """A matched copy that is already cancelled is left untouched and not resurfaced."""
+    vault = RecordingVault(
+        {"daily/2026-06-20.md": "## TODO\n- [-] Give feedback 🔽 #status/waiting ❌ 2026-06-19\n"})
+    items = [OpenItem(text="Give feedback", status="On Notice", carry_over_weeks=1, started_at=None)]
+    index = existing_task_index_stub("give feedback", "daily/2026-06-20.md",
+                                     "- [-] Give feedback 🔽 #status/waiting ❌ 2026-06-19")
+    apply_open_items(vault, "daily", items, date(2026, 6, 24), index=index)
+    assert vault.patches == []
+    assert vault.files["daily/2026-06-20.md"] == \
+        "## TODO\n- [-] Give feedback 🔽 #status/waiting ❌ 2026-06-19\n"
+
+
+def test_existing_task_index_prefers_live_over_cancelled() -> None:
+    rows = [
+        {"text": "- [-] Give feedback ❌ 2026-06-01", "path": "d/old.md", "completed": False,
+         "status": "-"},
+        {"text": "- [ ] Give feedback", "path": "d/new.md", "completed": False, "status": " "},
+    ]
+    assert existing_task_index(FakeSearchVault(rows))["give feedback"].path == "d/new.md"
+    # order-independent: live copy wins regardless of row order
+    assert existing_task_index(FakeSearchVault(list(reversed(rows))))["give feedback"].path == "d/new.md"
 
 
 def test_backfill_creates_completion_note_and_appends_done() -> None:

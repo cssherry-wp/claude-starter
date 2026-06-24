@@ -79,6 +79,14 @@ def test_normalize_strips_status_dashes_and_signifiers() -> None:
     assert a == b == "ask for talent review"
 
 
+def test_normalize_treats_cancelled_and_in_progress_as_same_task() -> None:
+    """A cancelled/in-progress copy must dedup against its open original."""
+    base = normalize_text("- [ ] Give feedback #status/waiting")
+    cancelled = normalize_text("- [-] Give feedback #status/waiting ❌ 2026-06-24")
+    in_progress = normalize_text("- [/] Give feedback #status/waiting")
+    assert base == cancelled == in_progress == "give feedback"
+
+
 class FakeSheets:
     def __init__(self, values: list[list[str]]) -> None:
         self._values = values
