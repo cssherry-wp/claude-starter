@@ -11,7 +11,7 @@ import yaml
 
 from planner.errors import ConfigError
 
-_DOC_ID_RE = re.compile(r"/document/d/([A-Za-z0-9_-]+)")
+_DOC_ID_RE = re.compile(r"/(?:document|spreadsheets)/d/([A-Za-z0-9_-]+)")
 
 
 @dataclass
@@ -20,6 +20,8 @@ class GoogleCfg:
     token_path: str
     planner_address: str
     gdoc_id: str
+    overview_tab: str = "Overview"
+    weeks_back: int = 4
 
 
 @dataclass
@@ -90,6 +92,8 @@ def _build_google(g: dict[str, Any]) -> GoogleCfg:
         credentials_path=_expand(_require(g, "google", "credentials_path")),
         token_path=_expand(_require(g, "google", "token_path")),
         gdoc_id=extract_doc_id(_require(g, "google", "gdoc_id")),
+        overview_tab=g.get("overview_tab", "Overview"),
+        weeks_back=int(g.get("weeks_back", 4)),
     )
 
 

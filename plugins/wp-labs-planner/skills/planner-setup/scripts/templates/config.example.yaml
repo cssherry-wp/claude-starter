@@ -3,9 +3,11 @@ google:
   token_path: ~/.config/planner/token.json
   # Email address of the Google account the planner calendar belongs to
   planner_address: sherry+planner@example.com
-  # Google Doc that holds your planner notes.
-  # Accepts either the full URL (https://docs.google.com/document/d/<ID>/...) or a bare document ID.
+  # Google Sheet that holds your todos (Overview tab). Full URL or bare ID.
   gdoc_id: 1AbCdEfGhIjKlMnOpQrStUvWxYz
+  # Worksheet/tab name to read, and how many prior weeks (rows) to scan.
+  overview_tab: Overview
+  weeks_back: 4
 onenote:
   files:
     - ~/OneNote/Work.one

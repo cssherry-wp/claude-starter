@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from planner.config import load_config
+from planner.config import extract_doc_id, load_config
 from planner.errors import ConfigError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
@@ -63,3 +63,25 @@ def test_gdoc_id_accepts_full_url(tmp_path: Path) -> None:
 def test_gdoc_id_accepts_bare_id() -> None:
     cfg = load_config(str(FIXTURE))
     assert cfg.google.gdoc_id == "1AbCdEfGhIjKlMnOpQrStUvWxYz"
+
+
+def test_extract_doc_id_handles_spreadsheet_url() -> None:
+    url = "https://docs.google.com/spreadsheets/d/1bB8LVB_Y5AZ/edit?gid=23#gid=23"
+    assert extract_doc_id(url) == "1bB8LVB_Y5AZ"
+
+
+def test_extract_doc_id_passes_bare_id() -> None:
+    assert extract_doc_id("1bB8LVB_Y5AZ") == "1bB8LVB_Y5AZ"
+
+
+def test_google_cfg_tab_and_weeks_defaults(tmp_path: Path) -> None:
+    cfg_file = tmp_path / "c.yaml"
+    cfg_file.write_text(
+        "google:\n"
+        "  credentials_path: /c.json\n  token_path: /t.json\n"
+        "  planner_address: a@b.com\n  gdoc_id: SHEET123\n"
+        "vault:\n  path: " + str(tmp_path) + "\n"
+    )
+    cfg = load_config(str(cfg_file))
+    assert cfg.google.overview_tab == "Overview"
+    assert cfg.google.weeks_back == 4
