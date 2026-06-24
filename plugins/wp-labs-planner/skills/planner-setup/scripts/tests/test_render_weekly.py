@@ -7,6 +7,7 @@ from planner.collectors.vault import Project
 from planner.config import load_config
 from planner.obsidian import FilesystemVault
 from planner.render_weekly import (
+    _highlights_block,
     build_weekly_body,
     load_default_weekly_template,
     render_weekly,
@@ -14,6 +15,16 @@ from planner.render_weekly import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
+
+
+def test_highlights_block_renders_bullets() -> None:
+    block = _highlights_block({"highlights": ["Shipped onboarding", "Closed Q2 audit"]})
+    assert block == "- Shipped onboarding\n- Closed Q2 audit"
+
+
+def test_highlights_block_empty_when_absent() -> None:
+    assert _highlights_block({}) == ""
+    assert _highlights_block({"highlights": ["", "  "]}) == ""
 
 
 def test_build_weekly_body_orders_urgent_first() -> None:

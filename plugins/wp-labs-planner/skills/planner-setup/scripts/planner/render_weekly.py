@@ -31,6 +31,12 @@ def _ordered_tasks(tasks: list[dict]) -> list[dict]:
     return sorted(tasks, key=lambda t: priority_rank(t.get("priority", "")))
 
 
+def _highlights_block(synthesis: dict) -> str:
+    """Build the frozen highlights bullet list from synthesis 'highlights'."""
+    return "\n".join(
+        f"- {str(h).strip()}" for h in synthesis.get("highlights", []) if str(h).strip())
+
+
 def _snapshot_block(synthesis: dict) -> str:
     """Build the frozen per-project task snapshot, urgent tasks first."""
     lines: list[str] = []
