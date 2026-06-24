@@ -12,8 +12,8 @@ def build_notes_block(synthesis: dict) -> str:
     parts: list[str] = []
     for call in synthesis.get("calls", []):
         title = call.get("title", "Event")
-        project = call.get("project", "")
-        parts.append(f"### {title} {project}".rstrip())
+        heading = [title, call.get("project", ""), call.get("people", "")]
+        parts.append("### " + " ".join(part for part in heading if part))
         time = call.get("time", "").strip()
         if time:
             parts.append(f"- {time}")

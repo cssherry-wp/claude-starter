@@ -12,8 +12,10 @@ from planner import render_tasks
 from planner.collectors import gmail, gsheet, onenote
 from planner.collectors.vault import recent_notes
 from planner.config import Config, load_config
+from planner.errors import VaultIOError
 from planner.gitcommit import commit_files, is_git_repo
 from planner.obsidian import Vault, make_vault
+from planner.people import match_people_tags, parse_people_tags
 from planner.render_daily import render_daily
 from planner.synthesis import synthesize_daily
 
@@ -77,15 +79,26 @@ def _gather_daily(vault: Vault, cfg: Config, today: date) -> dict:
     }
 
 
-def _merge_calls(fetched: list[dict], llm_calls: list[dict]) -> list[dict]:
+def _people_tags(vault: Vault, cfg: Config) -> list[str]:
+    """Load the People template's hashtags from the vault, or [] if unavailable."""
+    try:
+        return parse_people_tags(vault.read(f"{cfg.vault.templates_dir}/People.md"))
+    except VaultIOError:
+        return []
+
+
+def _merge_calls(fetched: list[dict], llm_calls: list[dict],
+                 people_tags: list[str] | None = None) -> list[dict]:
     """Render events from the deterministically-parsed email, enriched by the LLM.
 
     Title and time come from fetch_calls (always present, correct local time). The
     LLM supplies project and a fallback summary, matched to the event by title.
+    Attendees are matched against the People template to add person hashtags.
 
     Args:
-        fetched: Event dicts parsed from the planner email (title, time, summary).
+        fetched: Event dicts parsed from the planner email (title, time, attendees).
         llm_calls: The LLM's calls output (title, project, previous_summary).
+        people_tags: Hashtags from the People template for attendee matching.
 
     Returns:
         Merged call dicts shaped for build_notes_block.
@@ -94,10 +107,12 @@ def _merge_calls(fetched: list[dict], llm_calls: list[dict]) -> list[dict]:
     merged = []
     for event in fetched:
         extra = enrichment.get(event.get("title", ""), {})
+        tags = match_people_tags(event.get("attendees", []), people_tags or [])
         merged.append({
             "title": event.get("title", ""),
             "time": event.get("time", ""),
             "project": extra.get("project", ""),
+            "people": " ".join(tags),
             "previous_summary": event.get("summary") or extra.get("previous_summary", ""),
         })
     return merged
@@ -118,7 +133,8 @@ def run_daily(cfg: Config, today: date) -> str:
     synthesis = synthesize_daily(cfg.llm, _load_prompt("daily_synthesis.md"), payload)
     fetched_calls = payload.get("calls") or []
     if isinstance(fetched_calls, list):
-        synthesis["calls"] = _merge_calls(fetched_calls, synthesis.get("calls", []))
+        synthesis["calls"] = _merge_calls(
+            fetched_calls, synthesis.get("calls", []), _people_tags(vault, cfg))
     path = render_daily(vault, cfg, synthesis, today)
     sheet = payload.get("sheet", {"open": [], "completed": []})
     index = render_tasks.existing_task_index(vault)

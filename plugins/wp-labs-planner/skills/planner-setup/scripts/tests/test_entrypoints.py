@@ -18,12 +18,20 @@ def test_merge_calls_uses_fetched_time_and_email_summary() -> None:
     llm = [{"title": "Demo Hour", "project": "#project/VIP", "previous_summary": "stale"}]
     assert daily_mod._merge_calls(fetched, llm) == [
         {"title": "Demo Hour", "time": "10:00", "project": "#project/VIP",
-         "previous_summary": "bring slides"}]
+         "people": "", "previous_summary": "bring slides"}]
 
 
 def test_merge_calls_keeps_events_without_llm_match() -> None:
     merged = daily_mod._merge_calls([{"title": "Solo", "time": "09:00", "summary": ""}], [])
-    assert merged == [{"title": "Solo", "time": "09:00", "project": "", "previous_summary": ""}]
+    assert merged[0]["title"] == "Solo" and merged[0]["project"] == ""
+    assert merged[0]["people"] == ""
+
+
+def test_merge_calls_adds_people_tags_from_attendees() -> None:
+    fetched = [{"title": "Demo Hour", "time": "18:00", "summary": "",
+                "attendees": ["Sherry Zhou", "organized by PLACEHOLDER"]}]
+    merged = daily_mod._merge_calls(fetched, [], ["#vip/ray_rouleau", "#wpl/sherry"])
+    assert merged[0]["people"] == "#wpl/sherry"
 
 
 def test_run_daily_apply_failure_does_not_abort(tmp_path: Path, monkeypatch) -> None:
