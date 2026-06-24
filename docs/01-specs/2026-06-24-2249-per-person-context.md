@@ -102,7 +102,9 @@ Pure functions (no I/O), each `str -> str`:
   (create `## <Project>` when none matches). De-dupes by tag (first one-liner wins).
 - `update_project_members(content: str, project: str, entries: list[dict], gen_day: date) -> str`
   — ensure `## Members`; upsert each member top line `- #tag — one_liner`; prepend/replace the
-  `  - <gen_day> — <update>` sub-bullet; add missing members.
+  `  - <gen_day> — <update>` sub-bullet **indented directly beneath that person's own member
+  line** (each person owns their own dated sub-bullets — never a shared flat list); add missing
+  members.
 
 `render_weekly.render_weekly` calls these with `synthesis["people"]`, the projects, and
 `gen_day`; writes `People.md` and each touched project note; returns those paths in `touched`.
