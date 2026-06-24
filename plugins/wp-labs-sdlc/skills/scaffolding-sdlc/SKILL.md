@@ -53,7 +53,9 @@ directory; copy from there.
    - dev-loop: `Makefile`, tool configs, `.gitignore`, manifest
    - starter app (greenfield only)
    - `git-hooks/pre-commit`
-   - each workflow: `ci.yml`, `security.yml`, `code-review.yml`, `claude.yml`,
+   - each workflow: `ci.yml`, `security.yml`, `code-review.yml` (two jobs — a
+     read-only `review` job runs `change-review` and a privileged `apply` job
+     applies its patch + posts findings), `claude.yml`,
      `claude-comment-triage.yml`, `pr-status-labels.yml`, `pr-rebase.yml`
    - `dependabot.yml`; the managed labels; hosting (`Dockerfile`,
      `docker-compose.yml`, `infra/` Bicep, `azure-deploy.yml`)
@@ -128,6 +130,12 @@ directory; copy from there.
   marketplace `cssherry-wp/wp-labs-starter`.
 - `[autofix]` coordination: triage commits are `[autofix]`-prefixed and signed
   `<!-- claude-autofix -->`; `code-review.yml` skips them.
+- **Branch protection required:** `code-review.yml`'s `apply` job pushes an
+  `[autofix]` commit to the PR branch from an agent-derived patch, and the agent
+  runs only on same-repo PRs (forks get no secrets). Consuming repos MUST
+  branch-protect `main`/release branches with required human review and MUST NOT
+  auto-merge on `[autofix]`/bot authorship — that human-review gate is what bounds a
+  prompt-injected patch.
 
 ## Common mistakes
 

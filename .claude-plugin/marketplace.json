@@ -9,7 +9,7 @@
     {
       "name": "wp-labs-standards",
       "source": "./plugins/wp-labs-standards",
-      "description": "Coding-standard skills (general + Python, TypeScript/React, CSS, SQL) and the team docs-path convention, plus common-task workflows: /commit, github-pr-prepare, and github-pr-review.",
+      "description": "Coding-standard skills (general + Python, TypeScript/React, CSS, SQL) and the team docs-path convention, plus common-task workflows: /commit, change-review (broad review dispatcher), github-pr-prepare, and github-pr-review.",
       "category": "development",
       "version": "0.2.0"
     },
