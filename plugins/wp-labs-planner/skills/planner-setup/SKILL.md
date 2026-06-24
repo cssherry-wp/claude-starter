@@ -23,7 +23,8 @@ Use when the user wants to install, configure, or check the status of the wp-lab
      into `obsidian.cert_path`, or set `NODE_EXTRA_CA_CERTS` for the bundled MCP server).
    - `vault_reachable`: verify `vault.path`; copy `scripts/templates/Daily.md` and
      `scripts/templates/Weekly.md` into `vault/<templates_dir>`.
-   - OneNote converter + LLM backend: see README.
+   - OneNote: export the notebook to PDF, set `onenote.pdf` + `onenote.section_to_project`, and run `python -m planner.import_onenote` to import pages into project folders.
+   - LLM backend: see README.
 3. **Offer scheduling** (optional): install the launchd plists from
    `scripts/templates/launchd/` (daily, plus weekly on Fridays).
 4. **Confirm:** re-run `status_check.py`; "running" = all flags except optional schedule.

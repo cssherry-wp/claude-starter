@@ -101,3 +101,42 @@ def synthesize_weekly(cfg: LlmCfg, prompt_template: str, payload: dict[str, Any]
         Dict with "projects" and "groups".
     """
     return _synthesize(cfg, prompt_template, payload)
+
+
+def summarize_changes(cfg: LlmCfg, prompt_template: str, old: str, new: str) -> str:
+    """Summarize what changed between two versions of a note's body.
+
+    Args:
+        cfg: LLM configuration.
+        prompt_template: Template string with {old} and {new} placeholders.
+        old: The previous version of the note body.
+        new: The new version of the note body.
+
+    Returns:
+        Summary of substantive changes, trimmed of whitespace.
+
+    Raises:
+        SynthesisError: If the LLM backend fails.
+    """
+    prompt = prompt_template.replace("{old}", old).replace("{new}", new)
+    return run_backend(cfg, prompt).strip()
+
+
+def extract_decisions(cfg: LlmCfg, prompt_template: str, project: str,
+                      materials: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extract decision summaries (with source note/header) from project material.
+
+    Args:
+        cfg: LLM configuration.
+        prompt_template: Template string with {project} and {materials} placeholders.
+        project: The project name to fill in the template.
+        materials: List of dicts with "note", "header", and "text" keys.
+
+    Returns:
+        List of dicts with "decision", "note", and "header" keys.
+    """
+    prompt = (prompt_template.replace("{project}", project)
+              .replace("{materials}", json.dumps(materials, indent=2, default=str)))
+    result = extract_json(run_backend(cfg, prompt))
+    decisions = result.get("decisions", [])
+    return decisions if isinstance(decisions, list) else []

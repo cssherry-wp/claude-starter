@@ -24,8 +24,9 @@ class GoogleCfg:
 
 @dataclass
 class OneNoteCfg:
-    files: list[str]
-    converter_command: str
+    pdf: list[str]
+    section_to_project: dict[str, str]
+    import_dir: str
 
 
 @dataclass
@@ -94,10 +95,14 @@ def _build_google(g: dict[str, Any]) -> GoogleCfg:
 
 
 def _build_onenote(o: dict[str, Any]) -> OneNoteCfg:
-    """Validate and construct OneNoteCfg from the raw onenote section."""
+    """Build the OneNote config (PDF ingestion)."""
+    pdf = o.get("pdf", [])
+    if isinstance(pdf, str):
+        pdf = [pdf]
     return OneNoteCfg(
-        files=[_expand(f) for f in o.get("files", [])],
-        converter_command=o.get("converter_command", ""),
+        pdf=[_expand(p) for p in pdf],
+        section_to_project=dict(o.get("section_to_project", {})),
+        import_dir=o.get("import_dir", "OneNote"),
     )
 
 

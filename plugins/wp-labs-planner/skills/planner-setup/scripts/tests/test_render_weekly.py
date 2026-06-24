@@ -6,7 +6,7 @@ from pathlib import Path
 from planner.collectors.vault import Project
 from planner.config import load_config
 from planner.obsidian import FilesystemVault
-from planner.render_weekly import build_weekly_body, render_weekly, update_project_section
+from planner.render_weekly import build_weekly_body, decision_bullet, render_weekly, update_knowledge_bank, update_project_section
 
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 
@@ -51,3 +51,27 @@ def test_render_weekly_writes_and_updates(tmp_path: Path) -> None:
     body = v.read("00-InProgress/VIP/00-VIP.md")
     assert "## Status" in body and "shipped" in body
     assert "## Timeline" in body and "on track" in body
+
+
+def test_decision_bullet_links_to_header() -> None:
+    b = decision_bullet({"decision": "Ship beta", "note": "zz-Sherry_Daily/2026-06-23.md",
+                         "header": "Harlo testing"})
+    assert b == "- Ship beta — [[2026-06-23#Harlo testing]]"
+    b2 = decision_bullet({"decision": "Pick X", "note": "00-InProgress/VIP/Page.md", "header": ""})
+    assert b2 == "- Pick X — [[Page]]"
+
+
+def test_update_knowledge_bank_appends_dedups_newest_first() -> None:
+    content = "# VIP\n## Summary\n\n## TODO\n- [ ] x\n"
+    d1 = [{"decision": "Ship beta", "note": "a.md", "header": "H"}]
+    out1 = update_knowledge_bank(content, d1)
+    assert "## Knowledge Bank" in out1
+    assert "- Ship beta — [[a#H]]" in out1
+    assert out1.index("## Knowledge Bank") < out1.index("## TODO")
+    # Re-run with one duplicate + one new -> only the new one is added, newest on top.
+    d2 = [{"decision": "Ship beta", "note": "a.md", "header": "H"},
+          {"decision": "Drop Y", "note": "b.md", "header": "H2"}]
+    out2 = update_knowledge_bank(out1, d2)
+    assert out2.count("Ship beta") == 1
+    assert "Drop Y" in out2
+    assert out2.index("Drop Y") < out2.index("Ship beta")

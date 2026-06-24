@@ -50,3 +50,30 @@ def test_run_backend_empty_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(syn.subprocess, "run", lambda *a, **k: P())
     with pytest.raises(SynthesisError):
         syn.run_backend(LlmCfg("claude", "claude", ["-p"], "", ""), "hi")
+
+
+def test_summarize_changes_fills_and_returns(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def fake(cfg, prompt):
+        seen.append(prompt)
+        return "  Added decision X.  "
+
+    monkeypatch.setattr(syn, "run_backend", fake)
+    cfg = LlmCfg("claude", "claude", ["-p"], "", "")
+    out = syn.summarize_changes(cfg, "OLD:{old}\nNEW:{new}", "old text", "new text")
+    assert out == "Added decision X."
+    assert "old text" in seen[0] and "new text" in seen[0]
+
+
+def test_extract_decisions_parses(monkeypatch: pytest.MonkeyPatch) -> None:
+    canned = json.dumps({"decisions": [
+        {"decision": "Ship Harlo to beta", "note": "zz-Sherry_Daily/2026-06-23.md",
+         "header": "Harlo testing #project/Hexarmor"}]})
+    monkeypatch.setattr(syn, "run_backend", lambda cfg, prompt: canned)
+    cfg = LlmCfg("claude", "claude", ["-p"], "", "")
+    out = syn.extract_decisions(cfg, "P:{project}\nM:{materials}", "Hexarmor",
+                                [{"note": "x.md", "header": "h", "text": "t"}])
+    assert out == [{"decision": "Ship Harlo to beta",
+                    "note": "zz-Sherry_Daily/2026-06-23.md",
+                    "header": "Harlo testing #project/Hexarmor"}]

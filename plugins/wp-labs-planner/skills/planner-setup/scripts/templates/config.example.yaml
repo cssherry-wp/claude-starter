@@ -7,11 +7,16 @@ google:
   # Accepts either the full URL (https://docs.google.com/document/d/<ID>/...) or a bare document ID.
   gdoc_id: 1AbCdEfGhIjKlMnOpQrStUvWxYz
 onenote:
-  files:
-    - ~/OneNote/Work.one
-  # Shell command to convert OneNote files to Markdown.
-  # Use {input} and {output} as placeholders for the source and destination paths.
-  converter_command: "one2md {input} {output}"
+  # PDF export(s) of your OneNote notebook (File > Export / Print to PDF).
+  pdf:
+    - ~/OneDrive/Notebooks/AI Value Creation.pdf
+  # Map OneNote section names (from the page footer) to project folder names.
+  # Unmapped sections import into <import_dir>/<Section>/.
+  section_to_project:
+    "UVEX (Hexarmor)": Hexarmor
+    "Example-Infinite": Infinite
+    "Warburg TA": WarburgTA
+  import_dir: OneNote
 vault:
   path: ~/vault
   vault_name: szhou

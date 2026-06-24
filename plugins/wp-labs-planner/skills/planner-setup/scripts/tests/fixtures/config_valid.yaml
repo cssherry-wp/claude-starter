@@ -4,9 +4,13 @@ google:
   planner_address: sherry+planner@example.com
   gdoc_id: 1AbCdEfGhIjKlMnOpQrStUvWxYz
 onenote:
-  files:
-    - ~/OneNote/Work.one
-  converter_command: "one2md {input} {output}"
+  pdf:
+    - ~/OneDrive/Notebooks/AI Value Creation.pdf
+  section_to_project:
+    "UVEX (Hexarmor)": Hexarmor
+    "Example-Infinite": Infinite
+    "Warburg TA": WarburgTA
+  import_dir: OneNote
 vault:
   path: ~/vault
   vault_name: szhou

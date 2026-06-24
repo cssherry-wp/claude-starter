@@ -22,13 +22,15 @@ Daily & weekly Obsidian planner that aggregates Gmail (+planner alias), a Google
    - Save as `credentials.json` in the scripts directory
    - Run `python -m planner.daily` once to trigger the consent flow (writes `token.json`)
 
-3. **Install & configure OneNote converter:**
-   - Install a OneNote-to-Markdown converter (e.g., `pandoc`, `mammoth`, or similar)
-   - Set `converter_command` in `config.yaml` with placeholders `{input}` and `{output}`:
-     ```yaml
-     converter_command: "pandoc {input} -t markdown -o {output}"
-     ```
-   - On converter failure, planner falls back to a placeholder note
+3. **Configure the planner:**
+   - Copy `scripts/templates/config.example.yaml` to `config.yaml`
+   - Fill in:
+     - `planner_address`: Gmail alias (e.g., `planner@mydomain.com`)
+     - `gdoc_id`: Google Doc ID for todos
+     - `vault.path`: path to Obsidian vault
+     - `vault.templates_dir`: where to find/copy templates
+     - `obsidian.api_key` / `obsidian.cert_path` (or use env var)
+   - Copy `scripts/templates/Daily.md` and `scripts/templates/Weekly.md` into `vault/<templates_dir>`
 
 4. **Configure LLM backend:**
    - Default: `claude -p` (Claude via Claude Code)
@@ -51,16 +53,6 @@ Daily & weekly Obsidian planner that aggregates Gmail (+planner alias), a Google
      - Download from `https://127.0.0.1:27124/obsidian-local-rest-api.crt` (default port; adjust if you changed it in the plugin settings) and save to `obsidian.cert_path` in config
      - Or set `NODE_EXTRA_CA_CERTS` for the bundled MCP server
 
-6. **Configure the planner:**
-   - Copy `scripts/templates/config.example.yaml` to `config.yaml`
-   - Fill in:
-     - `planner_address`: Gmail alias (e.g., `planner@mydomain.com`)
-     - `gdoc_id`: Google Doc ID for todos
-     - `vault.path`: path to Obsidian vault
-     - `vault.templates_dir`: where to find/copy templates
-     - `obsidian.api_key` / `obsidian.cert_path` (or use env var)
-   - Copy `scripts/templates/Daily.md` and `scripts/templates/Weekly.md` into `vault/<templates_dir>`
-
 ## Running
 
 Replace `/path/to/wp-labs-planner/skills/planner-setup` with your installed plugin path. The `scripts/` directory is the planner tool directory (contains `pyproject.toml`).
@@ -76,6 +68,34 @@ python -m planner.daily --config /path/to/config.yaml
 cd /path/to/wp-labs-planner/skills/planner-setup/scripts
 python -m planner.weekly --config /path/to/config.yaml
 ```
+
+## Importing OneNote
+
+The planner can import pages from a OneNote notebook exported to PDF. Pages are organized into project folders based on the section name, with unmapped sections falling back to a configurable import directory.
+
+**Setup:**
+1. Export your OneNote notebook to PDF (File > Export / Print to PDF)
+2. In `config.yaml`, set `onenote.pdf` to the exported PDF path and `onenote.section_to_project` to map section names to project folders:
+   ```yaml
+   onenote:
+     pdf:
+       - ~/OneDrive/Notebooks/AI Value Creation.pdf
+     section_to_project:
+       "UVEX (Hexarmor)": Hexarmor
+       "Example-Infinite": Infinite
+     import_dir: OneNote
+   ```
+3. Run the importer:
+   ```bash
+   cd /path/to/wp-labs-planner/skills/planner-setup/scripts
+   python -m planner.import_onenote --pdf "/path/to/notebook.pdf"
+   ```
+
+**How it works:**
+- Each page becomes a note in its mapped project folder (or `<import_dir>/<Section>/` if unmapped)
+- The note includes the page's edited date as a frontmatter tag and file modification time
+- Re-importing a newer export of the same page prepends a `## Changes - #<new> from #<old>` block to track revisions
+- The weekly run grows each project's `## Knowledge Bank` with new material from the imported pages
 
 ## Scheduling (Optional)
 

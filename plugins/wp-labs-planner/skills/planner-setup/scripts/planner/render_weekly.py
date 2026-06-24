@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import PurePosixPath
 
 from planner.collectors.vault import Project
 from planner.config import Config
@@ -76,6 +77,46 @@ def update_project_section(
     insert_at = todo if todo != -1 else len(content)
     block = f"## {heading}\n{bullet}\n\n"
     return content[:insert_at] + block + content[insert_at:]
+
+
+def decision_bullet(decision: dict) -> str:
+    """Render one knowledge-bank bullet with an Obsidian backlink to its source.
+
+    Args:
+        decision: Decision dict with keys "decision", "note", and "header".
+
+    Returns:
+        A formatted bullet with backlink, e.g. "- Ship beta — [[2026-06-23#Harlo testing]]".
+    """
+    stem = PurePosixPath(decision.get("note", "")).stem
+    header = (decision.get("header") or "").strip()
+    link = f"[[{stem}#{header}]]" if header else f"[[{stem}]]"
+    return f"- {decision.get('decision', '').strip()} — {link}"
+
+
+def update_knowledge_bank(content: str, decisions: list[dict]) -> str:
+    """Append new decision bullets under '## Knowledge Bank', deduped, newest-first.
+
+    Args:
+        content: The original content of the note.
+        decisions: List of decision dicts to add.
+
+    Returns:
+        The updated content with new decision bullets appended under Knowledge Bank.
+    """
+    marker = "## Knowledge Bank"
+    existing = content
+    fresh = [decision_bullet(d) for d in decisions]
+    fresh = [b for b in fresh if b.rsplit(" — ", 1)[0] not in existing]
+    if not fresh:
+        return content
+    block = "\n".join(reversed(fresh))  # newest-first within this batch
+    if marker in content:
+        idx = content.index(marker) + len(marker)
+        return content[:idx] + "\n" + block + content[idx:]
+    todo = content.find("## TODO")
+    at = todo if todo != -1 else len(content)
+    return content[:at] + f"{marker}\n{block}\n\n" + content[at:]
 
 
 def render_weekly(vault: Vault, cfg: Config, synthesis: dict,

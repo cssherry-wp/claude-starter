@@ -20,6 +20,9 @@ def test_loads_valid_config() -> None:
     assert cfg.obsidian.port == 27124
     assert cfg.llm.backend == "claude"
     assert cfg.llm.flags == ["-p"]
+    assert cfg.onenote.pdf == [str(Path("~/OneDrive/Notebooks/AI Value Creation.pdf").expanduser())]
+    assert cfg.onenote.section_to_project["UVEX (Hexarmor)"] == "Hexarmor"
+    assert cfg.onenote.import_dir == "OneNote"
 
 
 def test_missing_file_raises(tmp_path: Path) -> None:

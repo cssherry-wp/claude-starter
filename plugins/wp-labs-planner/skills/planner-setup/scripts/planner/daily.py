@@ -7,7 +7,7 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
-from planner.collectors import gdoc, gmail, onenote
+from planner.collectors import gdoc, gmail
 from planner.collectors.vault import recent_notes
 from planner.config import Config, load_config
 from planner.gitcommit import commit_files, is_git_repo
@@ -47,8 +47,6 @@ def _gather_daily(vault, cfg: Config, today: date) -> dict:  # type: ignore[no-u
         "calls": _safe("calls", lambda: [e.__dict__ for e in gmail.fetch_calls(
             services()[0], cfg.google.planner_address)]),
         "todos": _safe("gdoc", lambda: gdoc.fetch_todos(services()[1], cfg.google.gdoc_id)),
-        "onenote": _safe("onenote", lambda: "\n\n".join(
-            onenote.convert(p, cfg.onenote.converter_command) for p in cfg.onenote.files)),
         "recent_notes": _safe("recent", lambda: [n.__dict__ for n in recent_notes(
             vault, cfg, today, repo)]),
     }
