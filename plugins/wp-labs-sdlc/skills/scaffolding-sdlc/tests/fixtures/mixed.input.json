@@ -1,0 +1,11 @@
+{
+  "reviewed": "PR #2: feat/y → main",
+  "summary": "### Summary\nAdds a parser.",
+  "findings": [
+    { "id": "f1", "checklist": "lint", "path": "src/a.ts", "line": 10, "start_line": null, "side": "RIGHT", "severity": "low", "confidence": 90, "status": "fixed", "body": "Unused import removed." },
+    { "id": "f2", "checklist": "correctness", "path": "src/b.ts", "line": 22, "start_line": null, "side": "RIGHT", "severity": "med", "confidence": 65, "status": "unfixed", "body": "Possible null deref on `cfg`." }
+  ],
+  "unanchored": [
+    { "id": "f3", "checklist": "tests", "confidence": 70, "body": "No test covers the new error path.", "hint": "tests/b.test.ts (suggested)" }
+  ]
+}

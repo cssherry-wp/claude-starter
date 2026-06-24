@@ -1,0 +1,7 @@
+{
+  "commit_id": "deadbeef", "event": "COMMENT",
+  "comments": [
+    { "path": "src/c.ts", "line": 30, "side": "RIGHT", "body": "Range issue.\n\n_(confidence 85)_", "start_line": 28, "start_side": "RIGHT" }
+  ],
+  "body": "S\n\n<!-- claude-autofix -->"
+}

@@ -1,0 +1,7 @@
+{
+  "reviewed": "PR #3", "summary": "S",
+  "findings": [
+    { "id": "f1", "checklist": "correctness", "path": "src/c.ts", "line": 30, "start_line": 28, "side": "RIGHT", "severity": "high", "confidence": 85, "status": "unfixed", "body": "Range issue." }
+  ],
+  "unanchored": []
+}
