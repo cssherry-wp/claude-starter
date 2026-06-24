@@ -256,7 +256,7 @@ def attribute_material(
         for line in note.content.splitlines():
             is_header = line.startswith("#") and line.lstrip("#").startswith(" ")
             if is_header:
-                header = line.lstrip("# ").rstrip()
+                header = _PROJECT_TAG.sub("", line.lstrip("# ")).strip()
                 tagged = {m for m in _PROJECT_TAG.findall(line)}
                 tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
                 section_projects = tagged or (

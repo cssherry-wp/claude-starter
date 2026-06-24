@@ -88,10 +88,11 @@ def test_attribute_material_by_tag_and_folder(tmp_path: Path) -> None:
     cfg = cfg_for(tmp_path)
     mats = attribute_material(v, cfg, date(2026, 6, 23), repo_path=None)
     hexar = mats.get("Hexarmor", [])
-    assert any("decided to ship" in m.text and m.header == "Harlo testing #project/Hexarmor"
+    assert any("decided to ship" in m.text and m.header == "Harlo testing"
                for m in hexar)
     assert any("chose vendor X" in m.text for m in hexar)
     assert any(m.note_path.endswith("Hexarmor/Page.md") for m in hexar)
+    assert all("#project/" not in m.header for m in hexar)
 
 
 def test_attribute_material_by_link(tmp_path: Path) -> None:
