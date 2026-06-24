@@ -191,3 +191,9 @@ mutation {
 
 - GitHub GraphQL API: https://docs.github.com/graphql
 - `gh api` documentation: `gh api --help`
+
+## Where this sits in the review flow
+
+See the [review-skills map](../change-review/review-skills-map.md):
+`change-review` (broad dispatch) → `/code-review` + `/security-review` (deep) →
+`requesting-code-review` → `github-pr-prepare` → `receiving-code-review` → `github-pr-review`.
