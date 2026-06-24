@@ -76,3 +76,14 @@ def test_event_is_future_past_utc() -> None:
 
 def test_event_is_future_unparseable_is_lenient() -> None:
     assert _event_is_future("garbage", _NOW) is True
+
+
+def test_gmail_scopes_use_spreadsheets() -> None:
+    from planner.collectors.gmail import GMAIL_SCOPES
+    assert any("spreadsheets.readonly" in s for s in GMAIL_SCOPES)
+    assert not any("documents.readonly" in s for s in GMAIL_SCOPES)
+
+
+def test_build_sheets_exists() -> None:
+    from planner.collectors import gmail
+    assert callable(gmail.build_sheets)

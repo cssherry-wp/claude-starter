@@ -15,7 +15,7 @@ from googleapiclient.discovery import build
 from planner.config import GoogleCfg
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly",
-                "https://www.googleapis.com/auth/documents.readonly"]
+                "https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 
 @dataclass
@@ -73,9 +73,9 @@ def build_gmail(creds: Credentials) -> Any:
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
-def build_docs(creds: Credentials) -> Any:
-    """Build the Google Docs API client."""
-    return build("docs", "v1", credentials=creds, cache_discovery=False)
+def build_sheets(creds: Credentials) -> Any:
+    """Build the Google Sheets API client."""
+    return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
 def _header(message: dict[str, Any], name: str) -> str:
