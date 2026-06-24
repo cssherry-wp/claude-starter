@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write    # required by claude-code-action to mint its OIDC token (grants no repo write)
     outputs:
       skip: ${{ steps.detect.outputs.skip }}
     steps:
