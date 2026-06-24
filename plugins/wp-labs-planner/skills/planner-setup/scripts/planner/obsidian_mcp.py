@@ -156,7 +156,11 @@ class McpVault:
         return list(files)
 
     def read(self, filepath: str) -> str:
-        """Return the text content of filepath.
+        """Return the markdown content of filepath.
+
+        ``vault_read`` returns a JSON envelope (``content``, ``stat``,
+        ``frontmatter``, ...); unwrap it to the raw note text so callers that
+        round-trip through write()/patch_heading() never persist the envelope.
 
         Args:
             filepath: Vault-relative file path.
@@ -167,7 +171,14 @@ class McpVault:
         Raises:
             VaultIOError: If the MCP call fails.
         """
-        return self._tool("vault_read", {"path": filepath})
+        raw = self._tool("vault_read", {"path": filepath})
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return raw  # server returned plain text
+        if isinstance(data, dict) and "content" in data:
+            return data["content"]
+        return raw
 
     def stat_mtime(self, filepath: str) -> float:
         """Return the last-modified timestamp of filepath as a POSIX float.

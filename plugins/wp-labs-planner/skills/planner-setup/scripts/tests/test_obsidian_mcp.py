@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -30,7 +31,15 @@ class FakeTransport:
             if name == "vault_list":
                 return _content('["A5/","Duravant/"]'), session
             if name == "vault_read":
-                return _content("## Notes\n\n- old\n\n## TODO\n"), session
+                # The real server returns the note as a JSON envelope, not raw text.
+                envelope = json.dumps({
+                    "tags": [], "frontmatter": {},
+                    "stat": {"ctime": 1, "mtime": 2, "size": 30},
+                    "path": "note.md",
+                    "content": "## Notes\n\n- old\n\n## TODO\n",
+                    "links": [], "backlinks": [],
+                })
+                return _content(envelope), session
             if name in ("vault_patch", "vault_write", "vault_append"):
                 return _content("OK"), session
         return {"result": {}}, session
@@ -52,8 +61,10 @@ def test_list_dir(vault: mcp_mod.McpVault) -> None:
     assert vault.list_dir("00-InProgress") == ["A5/", "Duravant/"]
 
 
-def test_read(vault: mcp_mod.McpVault) -> None:
-    assert "## Notes" in vault.read("note.md")
+def test_read_returns_content_not_envelope(vault: mcp_mod.McpVault) -> None:
+    body = vault.read("note.md")
+    assert body == "## Notes\n\n- old\n\n## TODO\n"
+    assert "stat" not in body and "frontmatter" not in body  # envelope unwrapped
 
 
 def test_patch_heading_calls_vault_patch(vault: mcp_mod.McpVault) -> None:
