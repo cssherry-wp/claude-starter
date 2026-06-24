@@ -25,6 +25,7 @@ def test_parse_date_valid_and_invalid() -> None:
     assert parse_date("Tuesday, May 26, 2026 4:25 PM") == date(2026, 5, 26)
     assert parse_date("not a date") is None
     assert parse_date("First body line") is None
+    assert parse_date("Tuesday, May 26, 2026 4:25 PM and extra") is None
 
 
 def test_parse_pages_segments_titles_dates_bodies() -> None:
@@ -39,6 +40,17 @@ def test_parse_pages_segments_titles_dates_bodies() -> None:
     assert "continued body line" in p0.body          # spans the PDF-page boundary
     assert "VIP Page 1" not in p0.body                 # footer stripped
     assert "Matching Architecture" not in p0.body      # next page's title excluded
+    assert p1.section == "VIP"
     assert p1.title == "Matching Architecture"
     assert p1.date == date(2026, 5, 27)
     assert "other page body" in p1.body
+
+
+def test_parse_pages_handles_section_change() -> None:
+    pg1 = ("Tesla Plan\nTuesday, May 26, 2026 4:25 PM\nvip body\n   VIP Page 1    \n")
+    pg2 = ("CI Setup\nWednesday, May 27, 2026 9:00 AM\nsdlc body\n   SDLC Page 1    \n")
+    pages = parse_pages([pg1, pg2])
+    assert [p.section for p in pages] == ["VIP", "SDLC"]
+    assert pages[1].title == "CI Setup"
+    assert "sdlc body" in pages[1].body
+    assert "vip body" not in pages[1].body   # same-section body filter

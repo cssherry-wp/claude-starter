@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 _FOOTER = re.compile(r"^(.+?)\s+Page\s+\d+\s*$")
 _DATE = re.compile(
-    r"^[A-Z][a-z]+day,\s+[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*[AP]M\b"
+    r"^[A-Z][a-z]+day,\s+[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*[AP]M\s*$"
 )
 _DATE_FMT = "%A, %B %d, %Y %I:%M %p"
 
@@ -108,5 +108,6 @@ def parse_pages(page_texts: list[str]) -> list[OneNotePage]:
         body = "\n".join(
             flat[j][0] for j in range(di + 1, end) if flat[j][1] == section
         )
-        pages.append(OneNotePage(section, title, parse_date(line), body.strip()))
+        dt = parse_date(line)
+        pages.append(OneNotePage(section, title, dt, body.strip()))
     return pages
