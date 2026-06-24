@@ -1,6 +1,6 @@
 ---
 name: team-docs-convention
-description: Team convention for where specs and plans are saved. Use when brainstorming a spec, writing an implementation plan, or referencing spec/plan files — overrides any default doc path (including superpowers' docs/superpowers/... paths).
+description: Team conventions for where specs and plans are saved and for reviewing worktree changes. Use when brainstorming a spec, writing an implementation plan, referencing spec/plan files, or finishing work in a git worktree — overrides any default doc path (including superpowers' docs/superpowers/... paths).
 ---
 
 # Team Docs Convention
@@ -19,3 +19,15 @@ Rules:
 
 If you are following the superpowers brainstorming or writing-plans skills, substitute these
 paths wherever they reference `docs/superpowers/specs/` or `docs/superpowers/plans/`.
+
+## Worktree review
+
+When working in a git worktree, once the work is done (all files for the task generated and
+ready), open the worktree repo folder in VSCode so it can be reviewed:
+
+```bash
+code "$(git rev-parse --show-toplevel)"
+```
+
+Do this once at completion, not after every file edit. If the `code` command is unavailable,
+report the worktree path and tell the user to open it manually.
