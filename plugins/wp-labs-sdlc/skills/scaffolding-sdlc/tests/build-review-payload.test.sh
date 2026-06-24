@@ -22,4 +22,6 @@ run_case() {
 run_case empty
 run_case mixed
 run_case multiline
+run_case realistic
+run_case body_compat
 exit "$fail"

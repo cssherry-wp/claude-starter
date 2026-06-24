@@ -5,10 +5,24 @@
 # Only findings[] (line-anchored) become inline comments; unanchored[] + an
 # auto-fixed digest go into the review body. Fixed findings carry the marker.
 
+# A finding's human text is assembled from the change-review vocabulary:
+# a bold `summary` headline, then `detail`, then a `suggestion` line. Older
+# payloads used a single `body` field; fall back to it so both shapes render.
+def finding_text:
+  ( [ (if (.summary // "") != "" then "**\(.summary)**" else empty end),
+      (if (.detail // "") != "" then .detail else empty end),
+      (if (.suggestion // "") != "" then "_Suggestion:_ \(.suggestion)" else empty end) ]
+    | join("\n\n") ) as $assembled
+  | if $assembled != "" then $assembled else (.body // "") end;
+
+# One-line headline for digests/lists: the summary, else the first line of body.
+def headline:
+  if (.summary // "") != "" then .summary else ((.body // "") | split("\n")[0]) end;
+
 def confidence_line: "\n\n_(confidence \(.confidence))_";
 
 def comment_body:
-  .body + confidence_line
+  finding_text + confidence_line
   + (if .status == "fixed"
      then "\n\n_Auto-fixed in the `[autofix]` commit._\n\n" + $marker
      else "" end);
@@ -21,25 +35,26 @@ def inline_comment:
 
 def fixed_list:
   [ (.findings // [])[] | select(.status == "fixed")
-    | "- `\(.path):\(.line)` — \(.body | split("\n")[0])" ];
+    | "- `\(.path):\(.line)` — \(headline)" ];
 
 def unanchored_list:
   [ (.unanchored // [])[]
-    | "- \(.body) _(confidence \(.confidence))_"
-      + (if (.hint // "") != "" then " — _\(.hint)_" else "" end) ];
+    | "- \(headline) _(confidence \(.confidence))_"
+      + (if (.category // "") != "" then " — _\(.category)_" else "" end) ];
 
 {
   commit_id: $commit_id,
   event: "COMMENT",
   comments: [ (.findings // [])[] | inline_comment ],
   body: (
-    (.summary // "")
-    + (if (fixed_list | length) > 0
-       then "\n\n## Auto-fixed (\(fixed_list | length))\n" + (fixed_list | join("\n"))
-       else "" end)
-    + (if (unanchored_list | length) > 0
-       then "\n\n## Other findings (not line-anchored)\n" + (unanchored_list | join("\n"))
-       else "" end)
+    ( [ (.summary // ""),
+        (if (fixed_list | length) > 0
+         then "## Auto-fixed (\(fixed_list | length))\n" + (fixed_list | join("\n"))
+         else "" end),
+        (if (unanchored_list | length) > 0
+         then "## Other findings (not line-anchored)\n" + (unanchored_list | join("\n"))
+         else "" end) ]
+      | map(select(. != "")) | join("\n\n") )
     + "\n\n" + $marker
   )
 }

@@ -1,0 +1,8 @@
+{
+  "commit_id": "deadbeef",
+  "event": "COMMENT",
+  "comments": [
+    { "path": "packages/ingest/src/glossary.ts", "line": 193, "side": "RIGHT", "body": "**Glossary term spanning a sentence split boundary is silently dropped.**\n\nextractGlossary receives full paragraph strings; anchorGlossary searches within sentences.\n\n_Suggestion:_ Log a warning when a term cannot be located in any sentence.\n\n_(confidence 62)_" }
+  ],
+  "body": "## Other findings (not line-anchored)\n- ALLOWED_TAGS embeds ~6 KB of tag vocabulary in every prompt. _(confidence 88)_ — _efficiency_\n\n<!-- claude-autofix -->"
+}

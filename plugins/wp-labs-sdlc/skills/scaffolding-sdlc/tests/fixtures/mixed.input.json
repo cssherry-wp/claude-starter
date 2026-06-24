@@ -1,11 +1,13 @@
 {
-  "reviewed": "PR #2: feat/y → main",
+  "meta": { "target": "PR #2: feat/y → main" },
   "summary": "### Summary\nAdds a parser.",
   "findings": [
-    { "id": "f1", "checklist": "lint", "path": "src/a.ts", "line": 10, "start_line": null, "side": "RIGHT", "severity": "low", "confidence": 90, "status": "fixed", "body": "Unused import removed." },
-    { "id": "f2", "checklist": "correctness", "path": "src/b.ts", "line": 22, "start_line": null, "side": "RIGHT", "severity": "med", "confidence": 65, "status": "unfixed", "body": "Possible null deref on `cfg`." }
+    { "path": "src/a.ts", "line": 10, "status": "fixed", "severity": "low", "confidence": 90,
+      "summary": "Unused import removed.", "detail": "The `os` import was unused.", "suggestion": "Drop the import." },
+    { "path": "src/b.ts", "line": 22, "status": "unfixed", "severity": "medium", "confidence": 65,
+      "summary": "Possible null deref on `cfg`.", "detail": "`cfg` may be undefined when config is absent." }
   ],
   "unanchored": [
-    { "id": "f3", "checklist": "tests", "confidence": 70, "body": "No test covers the new error path.", "hint": "tests/b.test.ts (suggested)" }
+    { "category": "tests", "confidence": 70, "summary": "No test covers the new error path.", "detail": "Add a case for the throw." }
   ]
 }
