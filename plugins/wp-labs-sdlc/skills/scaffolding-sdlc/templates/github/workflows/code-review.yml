@@ -4,59 +4,33 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
 
+# No permissions by default; each job requests only the minimum it needs.
+permissions: {}
+
 jobs:
-  code-review:
-    # Skip when the PR opts out of all Claude automation.
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-automation') }}
+  # Job A — runs the agent on untrusted PR content. Its token is read-only, so it can
+  # neither push nor comment. It produces an autofix patch + a findings file as an
+  # artifact for the privileged job to act on. The agent runs ONLY in this job.
+  review:
+    # Same-repo PRs only: fork PRs get no secrets (the agent can't run) and can't push.
+    # Fork PRs are reviewed by a human, not by this workflow.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !contains(github.event.pull_request.labels.*.name, 'no-automation')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # write is required so the review can post its comment via `gh pr comment`
-      pull-requests: write
-      issues: read
-      id-token: write
+    outputs:
+      skip: ${{ steps.detect.outputs.skip }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Checkout PR head
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
-          fetch-depth: 1
-
-      - name: Detect autofix commit
-        id: detect
-        run: |
-          SUBJECT="$(git log -1 --pretty=%s)"
-          if printf '%s' "$SUBJECT" | grep -q '^\[autofix\]'; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run code review
-        if: steps.detect.outputs.skip == 'false'
-        id: code-review
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-
-  security-review:
-    # Skip when the PR opts out of all Claude automation.
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-automation') }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # write is required so the security review can comment its findings on the PR
-      pull-requests: write
-      issues: read
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          # full history so the review can diff the PR against its base
           fetch-depth: 0
+          # Pin to the immutable head SHA, not the mutable branch name: the review and
+          # apply jobs run at different times, so both must see the exact same commit or
+          # the patch (built in review) may apply to the wrong tree in apply.
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Detect autofix commit
         id: detect
@@ -68,16 +42,96 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run security review
+      - name: Run change-review (read-only — produces findings + patch, never pushes)
         if: steps.detect.outputs.skip == 'false'
-        id: security-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Marketplace pinned for supply-chain safety. If the action does not honor
+          # @<sha> on the URL, cut a release tag and pin to it; bump via reviewed PRs.
+          plugin_marketplaces: 'https://github.com/cssherry-wp/wp-labs-starter.git@d444e09a4dc85886df2b0e8f4cc5a6484f6ed164'
+          plugins: 'wp-labs-standards@wp-labs-starter'
           prompt: |
-            /security-review
-            Review only the changes in this pull request against its base branch.
-            Post the findings as a comment on PR #${{ github.event.pull_request.number }}
-            in ${{ github.repository }} using `gh pr comment`. If there are no findings,
-            say so briefly in the comment.
-          claude_args: '--allowed-tools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"'
+            /wp-labs-standards:change-review --fix --effort high
+            Review the changes in this pull request against its base branch.
+            Apply ONLY high-confidence, mechanically-fixable findings to the working tree.
+            Do NOT commit, push, or post any PR comment. Write every finding (each with
+            its confidence score), including ones you did not fix, to the file
+            change-review-findings.md in the repository root.
+          claude_args: '--allowedTools "Read,Grep,Glob,Edit,Skill,Bash" --disallowedTools "Bash(git push:*),Bash(git commit:*),Bash(gh pr comment:*),Bash(gh pr review:*),Bash(gh pr merge:*)"'
+
+      - name: Package patch and findings
+        if: steps.detect.outputs.skip == 'false'
+        run: |
+          OUT="$RUNNER_TEMP/cr"
+          mkdir -p "$OUT"
+          if [ -f change-review-findings.md ]; then
+            mv change-review-findings.md "$OUT/change-review-findings.md"
+          else
+            echo "No findings reported." > "$OUT/change-review-findings.md"
+          fi
+          git add -A
+          git diff --cached > "$OUT/autofix.patch" || true
+
+      - name: Upload review artifact
+        if: steps.detect.outputs.skip == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: change-review-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/cr/
+          retention-days: 1
+
+  # Job B — privileged and deterministic. No agent, no execution of PR code. It applies
+  # the vetted patch and posts the findings comment, nothing else.
+  apply:
+    needs: review
+    if: needs.review.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+          # Pin to the immutable head SHA, not the mutable branch name: the review and
+          # apply jobs run at different times, so both must see the exact same commit or
+          # the patch (built in review) may apply to the wrong tree in apply.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download review artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: change-review-${{ github.event.pull_request.number }}
+          path: cr
+
+      - name: Apply autofix patch and push
+        # head.ref is attacker-controlled (PR author names the branch) and git allows
+        # shell metacharacters in ref names. Pass it via env so the shell — not Actions
+        # templating — expands it, as a single quoted argv to git push (no injection).
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -s cr/autofix.patch ]; then
+            if git apply --index cr/autofix.patch; then
+              git -c user.name='change-review[bot]' \
+                  -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                  commit --no-verify -m "[autofix] change-review high-confidence fixes"
+              git push origin "HEAD:$HEAD_REF"
+            else
+              echo "::notice::autofix patch did not apply cleanly; skipping."
+            fi
+          else
+            echo "No autofix patch to apply."
+          fi
+
+      - name: Post findings comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s cr/change-review-findings.md ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --body-file cr/change-review-findings.md
+          fi

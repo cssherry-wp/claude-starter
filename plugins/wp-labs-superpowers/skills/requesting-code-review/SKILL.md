@@ -101,3 +101,9 @@ You: [Fix progress indicators]
 - Request clarification
 
 See template at: [code-reviewer.md](code-reviewer.md)
+
+## Where this sits in the review flow
+
+See the [review-skills map](../../../wp-labs-standards/skills/change-review/review-skills-map.md):
+`change-review` (broad dispatch) → `/code-review` + `/security-review` (deep) →
+`requesting-code-review` → `github-pr-prepare` → `receiving-code-review` → `github-pr-review`.

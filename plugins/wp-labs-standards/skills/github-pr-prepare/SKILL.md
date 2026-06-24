@@ -37,3 +37,9 @@ git merge upstream/main  # or `upstream/master`, depending on the repository
 - Avoid verbose text in PR description. Brevity is golden. Prefer bullet points. Focus on WHAT this PR achieves, what major caveats it could have. Emphasize if there is user-observable backwards incompatibility.
 
 - Include test results: which environment, which cloud provider, which GPUs and what the result was.
+
+## Where this sits in the review flow
+
+See the [review-skills map](../change-review/review-skills-map.md):
+`change-review` (broad dispatch) → `/code-review` + `/security-review` (deep) →
+`requesting-code-review` → `github-pr-prepare` → `receiving-code-review` → `github-pr-review`.
