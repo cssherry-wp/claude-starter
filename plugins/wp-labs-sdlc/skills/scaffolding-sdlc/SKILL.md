@@ -99,7 +99,10 @@ directory; copy from there.
    `.sdlc-hooks/pre-commit`, then run `make install-hooks` to symlink it.
 
 5. **GitHub Actions.** Copy `templates/github/workflows/*.yml` →
-   `.github/workflows/` (gates `ci.yml`/`security.yml`, the Claude automation
+   `.github/workflows/`. When `code-review.yml` is included, also copy its helper
+   `templates/github/workflows/build-review-payload.jq` → `.github/workflows/`
+   (the apply job calls it via `jq -f .github/workflows/build-review-payload.jq`). (gates
+   `ci.yml`/`security.yml`, the Claude automation
    trio, `pr-status-labels.yml`, and `pr-rebase.yml`) and
    `templates/github/dependabot.yml` → `.github/dependabot.yml`. Skip any
    workflow the user opted out of (e.g. no Semgrep → leave the `semgrep` job out
