@@ -120,6 +120,18 @@ def test_parse_tomorrow_calendar_absent_section_returns_empty() -> None:
     assert parse_tomorrow_calendar("nothing here", date(2026, 6, 24)) == []
 
 
+def test_parse_tomorrow_calendar_returns_all_events() -> None:
+    """Every timed row is emitted, not just the first (quoted, same time format)."""
+    body = (
+        "> Tomorrow's Calendar\n>\n> Time\n> Event\n> Attendees\n>\n"
+        "> 1:00–2:00 PM ET\n> Demo Hour\n> Sherry Zhou\n>\n"
+        "> 3:00–4:00 PM ET\n> Standup\n> Ray Rouleau\n>\n> All-day events\n> Sherry OOO\n"
+    )
+    events = parse_tomorrow_calendar(body, date(2026, 6, 24), ZoneInfo("America/Los_Angeles"))
+    assert [e.title for e in events] == ["Demo Hour", "Standup"]
+    assert events[1].time == "12:00"  # 3:00 PM EDT -> 12:00 PDT
+
+
 def test_parse_tomorrow_calendar_strips_email_quote_markers() -> None:
     """A quoted/blockquoted email body must not leak '>' markers into the cells."""
     body = (
