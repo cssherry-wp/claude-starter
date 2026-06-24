@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from planner.collectors.gsheet import OpenItem, normalize_text
+from planner.collectors.gsheet import CompletedItem, OpenItem, normalize_text
 from planner.errors import priority_emoji
 
 log = logging.getLogger(__name__)
@@ -151,3 +151,42 @@ def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: d
     if new_lines:
         _ensure_note(vault, today_path)
         vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")
+
+
+def _duration_suffix(item: CompletedItem) -> str:
+    """Return a duration suffix for a completed item, or empty string if unknown.
+
+    Args:
+        item: The completed item with started_at and completed_at times.
+
+    Returns:
+        A string like " (12m)" or " (1h 30m)" if duration is positive, or "" otherwise.
+    """
+    if not item.started_at:
+        return ""
+    minutes = int((item.completed_at - item.started_at).total_seconds() // 60)
+    if minutes <= 0:
+        return ""
+    hours, mins = divmod(minutes, 60)
+    label = f"{hours}h {mins}m" if hours else f"{mins}m"
+    return f" ({label})"
+
+
+def apply_completed_items(vault: Any, daily_dir: str, items: list[CompletedItem],
+                          index: dict[str, TaskRef]) -> None:
+    """Backfill undocumented completed items into their completion-date daily notes.
+
+    Args:
+        vault: Vault object with exists(), write(), and patch_heading() methods.
+        daily_dir: Directory path for daily notes (e.g. "daily").
+        items: List of completed items to backfill.
+        index: Dictionary mapping normalized task text to TaskRef for deduplication.
+    """
+    for item in items:
+        if normalize_text(item.text) in index:
+            continue
+        day = item.completed_at.date()
+        path = f"{daily_dir}/{day.isoformat()}.md"
+        _ensure_note(vault, path)
+        line = f"- [x] {item.text} ✅ {day.isoformat()}{_duration_suffix(item)}"
+        vault.patch_heading(path, "TODO", line, operation="append")

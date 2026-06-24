@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime as _dt
 
-from planner.collectors.gsheet import OpenItem
+from planner.collectors.gsheet import CompletedItem, OpenItem
 from planner.render_tasks import (
     TaskRef,
+    apply_completed_items,
     apply_open_items,
     existing_task_index,
     open_task_line,
@@ -41,7 +42,7 @@ def test_open_task_line_no_status_plain() -> None:
 
 def test_open_task_line_started_shows_start_date() -> None:
     item = OpenItem(text="Build", status="Started", carry_over_weeks=0,
-                    started_at=datetime(2026, 1, 9, 4, 0, 0))
+                    started_at=_dt(2026, 1, 9, 4, 0, 0))
     line = open_task_line(item, date(2026, 6, 28))
     assert line == "- [ ] Build 🛫 2026-01-09 #status/started"
 
@@ -121,3 +122,28 @@ def test_apply_open_items_reconciles_stale_priority() -> None:
     assert vault.patches == []  # already exists → not re-appended
     assert "⏫ 📅 2026-06-28 #status/on-notice" in vault.files["daily/2026-06-20.md"]
     assert "🔽 #status/waiting" not in vault.files["daily/2026-06-20.md"]
+
+
+def test_backfill_creates_completion_note_and_appends_done() -> None:
+    vault = RecordingVault()
+    items = [CompletedItem(text="Done it", completed_at=_dt(2026, 1, 5, 14, 1, 52), started_at=None)]
+    apply_completed_items(vault, "daily", items, index={})
+    assert vault.exists("daily/2026-01-05.md")
+    assert vault.patches == [("daily/2026-01-05.md", "TODO", "- [x] Done it ✅ 2026-01-05")]
+
+
+def test_backfill_includes_duration_when_started_known() -> None:
+    vault = RecordingVault()
+    items = [CompletedItem(text="Create feedback",
+                           completed_at=_dt(2026, 1, 9, 4, 41, 30),
+                           started_at=_dt(2026, 1, 9, 4, 29, 26))]
+    apply_completed_items(vault, "daily", items, index={})
+    assert vault.patches[0][2] == "- [x] Create feedback ✅ 2026-01-09 (12m)"
+
+
+def test_backfill_skips_already_documented() -> None:
+    vault = RecordingVault()
+    items = [CompletedItem(text="Done it", completed_at=_dt(2026, 1, 5, 14, 1, 52), started_at=None)]
+    index = existing_task_index_stub("done it", "daily/2026-01-05.md", "- [x] Done it ✅ 2026-01-05")
+    apply_completed_items(vault, "daily", items, index=index)
+    assert vault.patches == []
