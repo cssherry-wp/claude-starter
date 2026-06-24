@@ -247,24 +247,21 @@ def attribute_material(
     Returns:
         Dictionary mapping project names to lists of Material objects.
     """
+    valid = {p.name for p in list_projects(vault, cfg)}
     out: dict[str, list[Material]] = {}
     for note in recent_notes(vault, cfg, today, repo_path):
         folder_project = _project_for_folder(note.path, cfg)
         header = ""
         section_projects: set[str] = set()
         for line in note.content.splitlines():
-            is_header = False
-            if line.startswith("#") and " " in line[:4] + " ":
-                if line.lstrip("#").startswith(" "):
-                    header = line.lstrip("# ").rstrip()
-                    is_header = True
-                    # Extract tags from the header line
-                    tagged = {m for m in _PROJECT_TAG.findall(line)}
-                    tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
-                    # Use tagged projects or folder project, not restricted to valid
-                    section_projects = tagged or (
-                        {folder_project} if folder_project else set()
-                    )
+            is_header = line.startswith("#") and line.lstrip("#").startswith(" ")
+            if is_header:
+                header = line.lstrip("# ").rstrip()
+                tagged = {m for m in _PROJECT_TAG.findall(line)}
+                tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
+                section_projects = tagged or (
+                    {folder_project} if folder_project else set()
+                )
             if not is_header:
                 tagged = {m for m in _PROJECT_TAG.findall(line)}
                 tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
@@ -273,7 +270,7 @@ def attribute_material(
                 )
             else:
                 targets = section_projects
-            for proj in targets:
+            for proj in targets & valid:
                 out.setdefault(proj, []).append(
                     Material(proj, note.path, header, line.strip())
                 )
