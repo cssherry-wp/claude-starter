@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timezone, tzinfo
+from datetime import date, datetime, tzinfo
 from html import unescape
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -37,28 +37,6 @@ class CalendarEvent:
     raw: str
     time: str = ""
     summary: str = ""
-
-
-def _event_is_future(start: str, now: datetime) -> bool:
-    """True if an ICS DTSTART (e.g. '20260625T150000Z') is at/after `now`.
-
-    Args:
-        start: DTSTART string from an ICS VEVENT.
-        now: Timezone-aware UTC datetime representing the current moment.
-
-    Returns:
-        True if the event is in the future (or unparseable), False if in the past.
-    """
-    try:
-        dt = datetime.strptime(start, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
-        return dt >= now
-    except ValueError:
-        pass
-    try:
-        dt_naive = datetime.strptime(start, "%Y%m%dT%H%M%S")
-        return dt_naive >= now.replace(tzinfo=None)
-    except ValueError:
-        return True
 
 
 def get_credentials(cfg: GoogleCfg, scopes: list[str]) -> Credentials:
@@ -122,24 +100,6 @@ def fetch_accomplishments(service: Any, planner_address: str, since: date) -> st
         snippet = msg.get("snippet", "").strip()
         lines.append(f"- **{subject}** — {snippet}")
     return "\n".join(lines)
-
-
-def parse_ics(text: str) -> CalendarEvent | None:
-    """Parse the first VEVENT; return None for all-day (DATE-only) events."""
-    title, start, attendees = "", "", []
-    for line in text.splitlines():
-        if line.startswith("SUMMARY:"):
-            title = line[len("SUMMARY:"):].strip()
-        elif line.startswith("DTSTART;VALUE=DATE:"):
-            return None
-        elif line.startswith("DTSTART"):
-            start = line.split(":", 1)[1].strip()
-        elif line.startswith("ATTENDEE"):
-            if "mailto:" in line:
-                attendees.append(line.split("mailto:", 1)[1].strip())
-    if not title or not start:
-        return None
-    return CalendarEvent(title=title, start=start, attendees=attendees, raw=text)
 
 
 def _decode_part(part: dict[str, Any]) -> str:

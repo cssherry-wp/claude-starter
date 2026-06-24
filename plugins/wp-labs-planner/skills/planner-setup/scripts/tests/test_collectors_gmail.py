@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 
 from zoneinfo import ZoneInfo
 
 from planner.collectors.gmail import (
-    CalendarEvent, _event_is_future, _to_local_hhmm, fetch_accomplishments, fetch_calls,
-    parse_ics, parse_tomorrow_calendar,
+    _to_local_hhmm, fetch_accomplishments, fetch_calls, parse_tomorrow_calendar,
 )
 
 _PLANNER_BODY = """Chatbot-dashboard docs
@@ -85,21 +84,6 @@ def test_fetch_accomplishments_returns_markdown() -> None:
     assert "Shipped the thing" in md
 
 
-def test_parse_ics_extracts_event() -> None:
-    ics = ("BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Sync with Meg\n"
-           "DTSTART:20260625T150000Z\nATTENDEE;CN=Meg:mailto:meg@x.com\nEND:VEVENT\nEND:VCALENDAR")
-    ev = parse_ics(ics)
-    assert isinstance(ev, CalendarEvent)
-    assert ev.title == "Sync with Meg"
-    assert ev.start == "20260625T150000Z"
-    assert "meg@x.com" in ev.attendees
-
-
-def test_parse_ics_all_day_returns_none() -> None:
-    ics = "BEGIN:VEVENT\nSUMMARY:Holiday\nDTSTART;VALUE=DATE:20260625\nEND:VEVENT"
-    assert parse_ics(ics) is None
-
-
 def test_to_local_hhmm_converts_et_to_local() -> None:
     la = ZoneInfo("America/Los_Angeles")
     # 1:00 PM EDT on 2026-06-24 == 10:00 PDT
@@ -145,21 +129,6 @@ def test_fetch_calls_parses_planner_email_body() -> None:
     svc = FakeService(listing, messages)
     events = fetch_calls(svc, "s+planner@x.com", date(2026, 6, 24))
     assert [e.title for e in events] == ["Demo Hour"]
-
-
-_NOW = datetime(2026, 6, 23, tzinfo=timezone.utc)
-
-
-def test_event_is_future_future_utc() -> None:
-    assert _event_is_future("20990101T120000Z", _NOW) is True
-
-
-def test_event_is_future_past_utc() -> None:
-    assert _event_is_future("20000101T120000Z", _NOW) is False
-
-
-def test_event_is_future_unparseable_is_lenient() -> None:
-    assert _event_is_future("garbage", _NOW) is True
 
 
 def test_gmail_scopes_use_spreadsheets() -> None:
