@@ -12,6 +12,20 @@ from planner.obsidian import FilesystemVault
 FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 
 
+def test_merge_calls_uses_fetched_time_and_email_summary() -> None:
+    """Title/time come from the parsed email; project from the LLM; email summary wins."""
+    fetched = [{"title": "Demo Hour", "time": "10:00", "summary": "bring slides"}]
+    llm = [{"title": "Demo Hour", "project": "#project/VIP", "previous_summary": "stale"}]
+    assert daily_mod._merge_calls(fetched, llm) == [
+        {"title": "Demo Hour", "time": "10:00", "project": "#project/VIP",
+         "previous_summary": "bring slides"}]
+
+
+def test_merge_calls_keeps_events_without_llm_match() -> None:
+    merged = daily_mod._merge_calls([{"title": "Solo", "time": "09:00", "summary": ""}], [])
+    assert merged == [{"title": "Solo", "time": "09:00", "project": "", "previous_summary": ""}]
+
+
 def test_run_daily_apply_failure_does_not_abort(tmp_path: Path, monkeypatch) -> None:
     """run_daily reaches the commit check even when an apply call raises VaultIOError."""
     (tmp_path / "zz-Sherry_Daily").mkdir()

@@ -68,13 +68,39 @@ def _gather_daily(vault: Vault, cfg: Config, today: date) -> dict:
         "accomplishments": _safe("gmail", lambda: gmail.fetch_accomplishments(
             services()[0], cfg.google.planner_address, week_start)),
         "calls": _safe("calls", lambda: [e.__dict__ for e in gmail.fetch_calls(
-            services()[0], cfg.google.planner_address)]),
+            services()[0], cfg.google.planner_address, today)]),
         "sheet": sheet_todos(),
         "onenote": _safe("onenote", lambda: "\n\n".join(
             onenote.convert(p, cfg.onenote.converter_command) for p in cfg.onenote.files)),
         "recent_notes": _safe("recent", lambda: [n.__dict__ for n in recent_notes(
             vault, cfg, today, repo)]),
     }
+
+
+def _merge_calls(fetched: list[dict], llm_calls: list[dict]) -> list[dict]:
+    """Render events from the deterministically-parsed email, enriched by the LLM.
+
+    Title and time come from fetch_calls (always present, correct local time). The
+    LLM supplies project and a fallback summary, matched to the event by title.
+
+    Args:
+        fetched: Event dicts parsed from the planner email (title, time, summary).
+        llm_calls: The LLM's calls output (title, project, previous_summary).
+
+    Returns:
+        Merged call dicts shaped for build_notes_block.
+    """
+    enrichment = {c.get("title", ""): c for c in llm_calls}
+    merged = []
+    for event in fetched:
+        extra = enrichment.get(event.get("title", ""), {})
+        merged.append({
+            "title": event.get("title", ""),
+            "time": event.get("time", ""),
+            "project": extra.get("project", ""),
+            "previous_summary": event.get("summary") or extra.get("previous_summary", ""),
+        })
+    return merged
 
 
 def run_daily(cfg: Config, today: date) -> str:
@@ -90,6 +116,9 @@ def run_daily(cfg: Config, today: date) -> str:
     vault = make_vault(cfg)
     payload = _gather_daily(vault, cfg, today)
     synthesis = synthesize_daily(cfg.llm, _load_prompt("daily_synthesis.md"), payload)
+    fetched_calls = payload.get("calls") or []
+    if isinstance(fetched_calls, list):
+        synthesis["calls"] = _merge_calls(fetched_calls, synthesis.get("calls", []))
     path = render_daily(vault, cfg, synthesis, today)
     sheet = payload.get("sheet", {"open": [], "completed": []})
     index = render_tasks.existing_task_index(vault)

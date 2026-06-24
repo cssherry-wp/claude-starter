@@ -2,9 +2,46 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from zoneinfo import ZoneInfo
+
 from planner.collectors.gmail import (
-    CalendarEvent, _event_is_future, fetch_accomplishments, parse_ics,
+    CalendarEvent, _event_is_future, _to_local_hhmm, fetch_accomplishments, fetch_calls,
+    parse_ics, parse_tomorrow_calendar,
 )
+
+_PLANNER_BODY = """Chatbot-dashboard docs
+
+Description
+
+Sherry follow-up
+
+TODO 1
+
+
+Tomorrow's Calendar
+
+Time
+Event
+Attendees
+Relevant bullets
+
+1:00–2:00 PM ET
+Demo Hour
+Sherry Zhou; organized by PLACEHOLDER
+Likely topics to bring: Claude starter/plugin consolidation, GitHub PR review skill.
+
+
+
+All-day events
+
+Event
+Date / span
+Attendees
+
+Sherry OOO
+Ongoing all-day event
+Sherry only / no listed attendees.
+"""
 
 
 class FakeMessages:
@@ -61,6 +98,53 @@ def test_parse_ics_extracts_event() -> None:
 def test_parse_ics_all_day_returns_none() -> None:
     ics = "BEGIN:VEVENT\nSUMMARY:Holiday\nDTSTART;VALUE=DATE:20260625\nEND:VEVENT"
     assert parse_ics(ics) is None
+
+
+def test_to_local_hhmm_converts_et_to_local() -> None:
+    la = ZoneInfo("America/Los_Angeles")
+    # 1:00 PM EDT on 2026-06-24 == 10:00 PDT
+    assert _to_local_hhmm("1:00–2:00 PM ET", date(2026, 6, 24), la) == "10:00"
+    assert _to_local_hhmm("9:30 AM ET", date(2026, 6, 24), ZoneInfo("America/New_York")) == "09:30"
+
+
+def test_to_local_hhmm_no_time_returns_empty() -> None:
+    assert _to_local_hhmm("All day", date(2026, 6, 24), ZoneInfo("UTC")) == ""
+
+
+def test_parse_tomorrow_calendar_extracts_timed_event_excluding_all_day() -> None:
+    events = parse_tomorrow_calendar(_PLANNER_BODY, date(2026, 6, 24),
+                                     ZoneInfo("America/Los_Angeles"))
+    assert len(events) == 1  # the all-day "Sherry OOO" event is excluded
+    ev = events[0]
+    assert ev.title == "Demo Hour"
+    assert ev.time == "10:00"
+    assert "Sherry Zhou" in ev.attendees
+    assert "Likely topics to bring" in ev.summary
+
+
+def test_parse_tomorrow_calendar_handles_three_column_table() -> None:
+    """The Relevant-bullets column is optional; title + time still parse."""
+    body = ("Tomorrow's Calendar\nTime\nEvent\nAttendees\n"
+            "1:00–2:00 PM ET\nDemo Hour\nSherry Zhou\nAll-day events\n")
+    events = parse_tomorrow_calendar(body, date(2026, 6, 24), ZoneInfo("America/Los_Angeles"))
+    assert len(events) == 1
+    assert events[0].title == "Demo Hour" and events[0].time == "10:00"
+    assert events[0].summary == ""
+
+
+def test_parse_tomorrow_calendar_absent_section_returns_empty() -> None:
+    assert parse_tomorrow_calendar("nothing here", date(2026, 6, 24)) == []
+
+
+def test_fetch_calls_parses_planner_email_body() -> None:
+    import base64
+    data = base64.urlsafe_b64encode(_PLANNER_BODY.encode()).decode()
+    listing = {"messages": [{"id": "m1"}]}
+    messages = {"m1": {"payload": {"mimeType": "multipart/alternative",
+                                   "parts": [{"mimeType": "text/plain", "body": {"data": data}}]}}}
+    svc = FakeService(listing, messages)
+    events = fetch_calls(svc, "s+planner@x.com", date(2026, 6, 24))
+    assert [e.title for e in events] == ["Demo Hour"]
 
 
 _NOW = datetime(2026, 6, 23, tzinfo=timezone.utc)
