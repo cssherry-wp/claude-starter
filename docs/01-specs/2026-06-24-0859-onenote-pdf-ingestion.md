@@ -16,9 +16,10 @@ exported to **PDF** (OneNote's print/export), and that PDF is ingested in two wa
   page's **correct edited date**. Re-importing a newer export prepends a summarized
   changelog rather than overwriting.
 - **Weekly decision consolidation (in the weekly run):** for each project, summarize the
-  decisions captured in its page-notes into a growing **`## Knowledge Bank`** in the
-  project's `00-<Name>.md` index, each decision backlinked to the page/header where it
-  was made.
+  decisions in the **new material that fed the weekly summary** — newly imported pages,
+  notes edited this week, and the week's daily notes — into a growing
+  **`## Knowledge Bank`** in the project's `00-<Name>.md` index, each decision backlinked
+  to the note/header where it was made.
 
 This removes the deferred `.one` converter risk entirely (the `.one`/`converter_command`
 approach in the prior spec is dropped — input is a PDF, parsed in pure Python).
@@ -89,15 +90,29 @@ mid-daily). A malformed/undetectable page logs a warning and is skipped; the res
 
 ## 4. Component B — Weekly decision knowledge-bank
 
-Runs inside `python -m planner.weekly`, after project status/timeline updates. For each
-project:
-- Gather the project's page-notes (those under `00-InProgress/<Project>/`, excluding the
-  `00-<Name>.md` index itself).
-- **Synthesis** extracts **high-level summaries of decisions made**, each with the source
-  note and its nearest enclosing header.
+Runs inside `python -m planner.weekly`, after project status/timeline updates. It draws
+on the **same new material the weekly summary is built from**, attributed per project.
+
+- **Source material (per project, incremental — "new material" only):**
+  1. **Newly imported / changed page-notes** under `00-InProgress/<Project>/` (Component
+     A's output this period).
+  2. **Notes edited this week** associated with the project — changed since the last
+     consolidation, detected by the existing recency signal (mtime + git, the same one
+     the weekly run already gathers).
+  3. **The week's daily notes** — the `zz-Sherry_Daily/` notes that fed the weekly
+     summary.
+  Material is attributed to a project by the vault convention: a `#project/<Name>` tag or
+  a `### <topic> #project/<Name>` block (daily notes already use this), a
+  `[[00-<Name>]]` link, or residence in the project folder. Content not attributable to
+  any project is skipped for the knowledge bank.
+  "New material" is bounded to what changed since the last weekly run (so old material is
+  not re-summarized every week); `## Knowledge Bank` dedup is the backstop.
+- **Synthesis** extracts **high-level summaries of decisions made** from that material,
+  each with the source note and its nearest enclosing header.
 - Append to a growing **`## Knowledge Bank`** section in `00-<Name>.md`, one bullet per
   decision: `- <decision summary> — [[<note>#<header>]]` (header-level Obsidian backlink;
-  page-level `[[<note>]]` when no header applies).
+  page-level `[[<note>]]` when no header applies). The backlink target may be an imported
+  page, an edited note, or a daily note — wherever the decision was found.
 - **Growing / dedup:** only decisions not already present are added (dedup by normalized
   summary text); existing entries are preserved; newest on top — the same in-place
   section-update mechanism used for `## Status` / `## Timeline`. The section is created
@@ -126,7 +141,12 @@ In `config.yaml`, the `onenote` block changes:
   - `planner/render_weekly.py` — extended with the `## Knowledge Bank` update (reusing
     `update_project_section`-style insertion).
   - `planner/synthesis.py` — add `summarize_changes(old, new)` and
-    `extract_decisions(project_notes)` prompts/functions.
+    `extract_decisions(project, materials)` (materials = the per-project new content from
+    imported pages + edited notes + daily notes, each tagged with its source path/header
+    so the model can emit backlinks) prompts/functions.
+  - `planner/collectors/vault.py` — a helper to attribute new/edited material (incl.
+    daily notes) to a project via `#project/<Name>` tags / `[[00-<Name>]]` links / folder
+    residence, scoped to what changed since the last consolidation.
 
 ## 7. Error handling
 
@@ -147,8 +167,11 @@ In `config.yaml`, the `onenote` block changes:
   frontmatter date tag + `#project/<Name>`; file mtime set to the edited date; re-import
   cases — new / unchanged-skip / newer → prepended `## Changes - #<new> from #<old>` with
   a mocked synthesis summary and body replaced; prior changelog preserved newest-first.
-- **Knowledge bank:** mocked synthesis → bullets with header-level backlinks; dedup
-  (no duplicate decisions on re-run); newest-first; section created before `## TODO`.
+- **Knowledge bank:** per-project material attribution across all three sources (imported
+  page, edited note, daily note) via `#project/<Name>` / `[[00-<Name>]]` / folder; only
+  new-since-last material is fed (old material not re-summarized); mocked synthesis →
+  bullets with header-level backlinks to the correct source note; dedup (no duplicate
+  decisions on re-run); newest-first; section created before `## TODO`.
 - External PDF/LLM are real-file fixtures / mocked subprocess respectively (no network).
 
 ## 9. Open items for planning
