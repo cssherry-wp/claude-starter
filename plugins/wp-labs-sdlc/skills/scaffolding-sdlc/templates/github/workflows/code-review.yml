@@ -48,9 +48,10 @@ jobs:
         uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Marketplace pinned for supply-chain safety. If the action does not honor
-          # @<sha> on the URL, cut a release tag and pin to it; bump via reviewed PRs.
-          plugin_marketplaces: 'https://github.com/cssherry-wp/wp-labs-starter.git@d444e09a4dc85886df2b0e8f4cc5a6484f6ed164'
+          # The action accepts only a plain marketplace Git URL — it does NOT honor an
+          # @<sha>/@<tag> ref (that fails with "Invalid marketplace URL format"). Supply-chain
+          # trust therefore relies on branch-protecting this marketplace repo's default branch.
+          plugin_marketplaces: 'https://github.com/cssherry-wp/wp-labs-starter.git'
           plugins: 'wp-labs-standards@wp-labs-starter'
           prompt: |
             /wp-labs-standards:change-review --fix --effort high
