@@ -8,6 +8,7 @@ from planner.config import load_config
 from planner.obsidian import FilesystemVault
 from planner.render_weekly import (
     _highlights_block,
+    _learnings_block,
     _open_tasks_block,
     build_weekly_body,
     load_default_weekly_template,
@@ -51,6 +52,15 @@ def test_open_tasks_block_omits_blank_status() -> None:
     block = _open_tasks_block(synthesis)
     assert "**Status:**" not in block and "**Timeline:**" not in block
     assert "- [ ] t" in block
+
+
+def test_learnings_block_links_to_source_daily() -> None:
+    block = _learnings_block({"learnings": [
+        {"text": "Cache cut latency", "source": "2026-06-23"},
+        {"text": "Follow up with vendor", "source": ""},
+        {"text": "  ", "source": "2026-06-22"},
+    ]})
+    assert block == "- Cache cut latency ([[2026-06-23]])\n- Follow up with vendor"
 
 
 def test_build_weekly_body_orders_urgent_first() -> None:

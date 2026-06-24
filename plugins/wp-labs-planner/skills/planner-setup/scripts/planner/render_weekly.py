@@ -56,6 +56,18 @@ def _open_tasks_block(synthesis: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
+def _learnings_block(synthesis: dict) -> str:
+    """Build the frozen learnings & follow-ups list, linking each to its source daily."""
+    lines: list[str] = []
+    for item in synthesis.get("learnings", []):
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        source = str(item.get("source", "")).strip()
+        lines.append(f"- {text} ([[{source}]])" if source else f"- {text}")
+    return "\n".join(lines)
+
+
 def _snapshot_block(synthesis: dict) -> str:
     """Build the frozen per-project task snapshot, urgent tasks first."""
     lines: list[str] = []
