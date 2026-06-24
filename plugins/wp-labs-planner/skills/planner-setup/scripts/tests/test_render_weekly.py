@@ -71,26 +71,32 @@ def test_build_weekly_body_orders_urgent_first() -> None:
             {"text": "urgent one", "priority": "highest"},
         ]}],
     }
-    body = build_weekly_body(synthesis, date(2026, 6, 26))
+    body = build_weekly_body(synthesis, date(2026, 6, 24))
     assert "tags:" in body and "Weekly" in body
     assert "```dataview" in body
-    assert "[[00-VIP|VIP]]" in body
+    assert "### [[00-VIP|VIP]]" in body
+    assert "- **Status:** on track" in body
     assert body.index("urgent one") < body.index("low one")
 
 
-def test_build_weekly_body_fills_template_token_and_sections() -> None:
-    template = ("# Week overview — {{week}}\n\n## Snapshot (frozen)\n\n"
-                "## Project statuses\n\n## References\n")
+def test_build_weekly_body_fills_tokens_and_injects_sections() -> None:
+    template = (
+        "# Week overview — {{week}}\n\n## Highlights\n\n## Open tasks by project\n\n"
+        "## Completed this week\n```dataview\nWHERE completion >= date(\"{{week_start}}\") "
+        "AND completion <= date(\"{{week_end}}\")\n```\n\n## Learnings & Follow-ups\n")
     synthesis = {
+        "highlights": ["Shipped beta"],
         "projects": [{"name": "VIP", "status": "shipped"}],
         "groups": [{"project": "VIP", "tasks": [{"text": "do it", "priority": "high"}]}],
+        "learnings": [{"text": "Cache helps", "source": "2026-06-23"}],
     }
-    body = build_weekly_body(synthesis, date(2026, 6, 26), template)
-    assert "# Week overview — 2026-06-26" in body and "{{week}}" not in body
-    # snapshot lands under its heading, before Project statuses
-    assert body.index("[[00-VIP|VIP]]") < body.index("## Project statuses")
-    assert "- **[[00-VIP|VIP]]** — shipped" in body
-    assert "## References" in body  # untouched static section preserved
+    body = build_weekly_body(synthesis, date(2026, 6, 24), template)
+    assert "# Week overview — 2026-06-24" in body and "{{week}}" not in body
+    assert 'date("2026-06-22")' in body and 'date("2026-06-28")' in body  # Mon..Sun
+    assert "{{week_start}}" not in body and "{{week_end}}" not in body
+    assert "- Shipped beta" in body
+    assert body.index("### [[00-VIP|VIP]]") < body.index("## Completed this week")
+    assert "- Cache helps ([[2026-06-23]])" in body
 
 
 def test_render_weekly_prefers_vault_template(tmp_path: Path) -> None:
@@ -130,10 +136,14 @@ def test_update_project_section_ignores_heading_prefix_collision() -> None:
     assert "## Status updates\n- noise" in out  # prefix-collision heading untouched
 
 
-def test_build_weekly_body_skips_project_without_name() -> None:
-    synthesis = {"projects": [{"status": "orphan"}, {"name": "VIP", "status": "ok"}], "groups": []}
-    body = build_weekly_body(synthesis, date(2026, 6, 26))  # no KeyError
-    assert "VIP" in body and "orphan" not in body
+def test_build_weekly_body_renders_only_grouped_projects() -> None:
+    synthesis = {
+        "projects": [{"name": "Ghost", "status": "orphan"}, {"name": "VIP", "status": "ok"}],
+        "groups": [{"project": "VIP", "tasks": [{"text": "t", "priority": "high"}]}],
+    }
+    body = build_weekly_body(synthesis, date(2026, 6, 24))
+    assert "[[00-VIP|VIP]]" in body  # VIP has a task group
+    assert "Ghost" not in body       # no group -> not rendered
 
 
 def test_render_weekly_writes_and_updates(tmp_path: Path) -> None:

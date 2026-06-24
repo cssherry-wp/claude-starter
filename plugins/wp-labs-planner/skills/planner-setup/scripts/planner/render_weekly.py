@@ -9,6 +9,7 @@ from planner.collectors.vault import Project
 from planner.config import Config
 from planner.errors import VaultIOError, priority_emoji, priority_rank
 from planner.obsidian import Vault
+from planner.render_tasks import week_end, week_start
 
 _WEEK_TOKEN = "{{week}}"
 
@@ -68,26 +69,6 @@ def _learnings_block(synthesis: dict) -> str:
     return "\n".join(lines)
 
 
-def _snapshot_block(synthesis: dict) -> str:
-    """Build the frozen per-project task snapshot, urgent tasks first."""
-    lines: list[str] = []
-    for group in synthesis.get("groups", []):
-        name = group.get("project", "Unsorted")
-        lines.append(f"### [[00-{name}|{name}]]")
-        for task in _ordered_tasks(group.get("tasks", [])):
-            emoji = priority_emoji(task.get("priority", ""))
-            lines.append(f"- [ ] {task.get('text', '').strip()} {emoji}".rstrip())
-        lines.append("")
-    return "\n".join(lines).rstrip()
-
-
-def _statuses_block(synthesis: dict) -> str:
-    """Build the one-line-per-project status list (skipping nameless projects)."""
-    statuses = [p for p in synthesis.get("projects", []) if p.get("name")]
-    return "\n".join(
-        f"- **[[00-{p['name']}|{p['name']}]]** — {p.get('status', '')}" for p in statuses)
-
-
 def _inject_section(text: str, heading: str, block: str) -> str:
     """Insert *block* directly under the '## heading' line, appending the section if absent."""
     if not block:
@@ -100,11 +81,11 @@ def _inject_section(text: str, heading: str, block: str) -> str:
 
 
 def build_weekly_body(synthesis: dict, gen_day: date, template: str | None = None) -> str:
-    """Fill the weekly template skeleton with the snapshot and project statuses.
+    """Fill the weekly skeleton: replace week tokens and inject the frozen blocks.
 
     Args:
-        synthesis: Synthesis dict containing projects and groups with tasks.
-        gen_day: The date for which the weekly overview is generated.
+        synthesis: Synthesis dict with projects, groups, highlights, learnings.
+        gen_day: The date the weekly overview is generated for.
         template: The skeleton to fill; defaults to the packaged template.
 
     Returns:
@@ -112,8 +93,11 @@ def build_weekly_body(synthesis: dict, gen_day: date, template: str | None = Non
     """
     skeleton = template if template is not None else load_default_weekly_template()
     body = skeleton.replace(_WEEK_TOKEN, gen_day.isoformat())
-    body = _inject_section(body, "Snapshot (frozen)", _snapshot_block(synthesis))
-    body = _inject_section(body, "Project statuses", _statuses_block(synthesis))
+    body = body.replace("{{week_start}}", week_start(gen_day).isoformat())
+    body = body.replace("{{week_end}}", week_end(gen_day).isoformat())
+    body = _inject_section(body, "Highlights", _highlights_block(synthesis))
+    body = _inject_section(body, "Open tasks by project", _open_tasks_block(synthesis))
+    body = _inject_section(body, "Learnings & Follow-ups", _learnings_block(synthesis))
     return body if body.endswith("\n") else body + "\n"
 
 
