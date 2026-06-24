@@ -163,8 +163,39 @@ applied; everything else is reported as a suggestion.
   edits into an `[autofix]` commit and pushes it.** Report what was fixed vs left as a suggestion.
 - **`--comment`**: post the report's findings as PR comments (use `github-pr-review` plumbing or
   `gh pr comment`), each with its confidence score; un-fixable and lower-confidence items go here.
-  **In CI the agent instead writes all findings (with scores) to `change-review-findings.md`, and
-  the separate privileged job posts that file as the PR comment.**
+  **In CI the agent instead writes all findings to `change-review-findings.json` (schema below);
+  the separate privileged job turns each line-anchored finding into an inline review comment and
+  posts the rest in the review body.**
+
+### CI findings JSON (`change-review-findings.json`)
+
+When run from CI (read-only mode, `--fix --comment`), write findings as JSON, not prose.
+Decide anchoring yourself — you hold the diff:
+
+- A finding goes in `findings[]` **only if** its `path` + `line` fall inside the PR diff
+  (an inline comment on a line outside the diff is rejected). Everything else (missing test,
+  absent doc, whole-PR concern) goes in `unanchored[]`.
+- `status: "fixed"` iff you applied the fix to the working tree under `--fix` (confidence ≥ 80,
+  mechanically fixable). All other findings are `"unfixed"`.
+- `side`: `"RIGHT"` for head-side/added/context lines, `"LEFT"` for a removed line. Set
+  `start_line` only for a multi-line range, else `null`.
+- Always write the file, even with no findings (`{"findings":[],"unanchored":[]}`).
+
+```json
+{
+  "reviewed": "PR #123: feat/foo → main",
+  "summary": "<markdown: sections 1,2,5,7 prose + verdict>",
+  "findings": [
+    { "id": "f1", "checklist": "correctness", "path": "src/foo.ts", "line": 42,
+      "start_line": null, "side": "RIGHT", "severity": "med", "confidence": 85,
+      "status": "fixed", "body": "<markdown; do NOT add the marker — the job appends it for fixed items>" }
+  ],
+  "unanchored": [
+    { "id": "f9", "checklist": "tests", "confidence": 70,
+      "body": "No test covers the new error path", "hint": "tests/foo.test.ts (suggested)" }
+  ]
+}
+```
 
 ## 7. Output format
 
