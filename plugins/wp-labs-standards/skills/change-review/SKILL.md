@@ -2,7 +2,7 @@
 name: change-review
 description: Review a changeset for a summary, surprises, architecture/security/structure risks, correctness bugs, test coverage, lint/style of new files, and doc freshness — dispatching deep correctness to /code-review and deep security to /security-review, with confidence-scored findings. Reviews the uncommitted working-tree diff by default, or a GitHub PR when given a PR number/URL. Trigger when the user asks to review their changes, review the diff, review a branch before pushing, or review a PR.
 user-invocable: true
-allowed-tools: Read, Bash, Grep, Glob, Agent, Skill, Edit
+allowed-tools: Read, Bash, Grep, Glob, Agent, Skill, Edit, Write
 argument-hint: "[pr-number | pr-url] [--fix] [--comment] [--effort low|medium|high|max]"
 ---
 
