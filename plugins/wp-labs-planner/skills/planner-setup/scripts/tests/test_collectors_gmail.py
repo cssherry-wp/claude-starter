@@ -150,15 +150,29 @@ def test_parse_tomorrow_calendar_strips_email_quote_markers() -> None:
     assert "review skill and worktree lessons." in ev.summary  # wrapped line rejoined
 
 
-def test_fetch_calls_parses_planner_email_body() -> None:
+def _plain_message(body: str, subject: str = "Daily planner") -> dict:
     import base64
-    data = base64.urlsafe_b64encode(_PLANNER_BODY.encode()).decode()
-    listing = {"messages": [{"id": "m1"}]}
-    messages = {"m1": {"payload": {"mimeType": "multipart/alternative",
-                                   "parts": [{"mimeType": "text/plain", "body": {"data": data}}]}}}
-    svc = FakeService(listing, messages)
+    return {"payload": {"mimeType": "multipart/alternative",
+                        "headers": [{"name": "Subject", "value": subject}],
+                        "parts": [{"mimeType": "text/plain",
+                                   "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()}}]}}
+
+
+def test_fetch_calls_parses_planner_email_body() -> None:
+    svc = FakeService({"messages": [{"id": "m1"}]}, {"m1": _plain_message(_PLANNER_BODY)})
     events = fetch_calls(svc, "s+planner@x.com", date(2026, 6, 24))
     assert [e.title for e in events] == ["Demo Hour"]
+
+
+def test_fetch_calls_skips_reply_and_uses_real_planner_email() -> None:
+    """A newer 'Re:' reply (a test/forward) must not shadow the real planner email."""
+    reply = "Tomorrow's Calendar\nTime\n1:00 PM ET\nReply Event\nSherry Zhou\nAll-day events\n"
+    real = "Tomorrow's Calendar\nTime\n4:00 PM ET\nReal Event\nSherry Zhou\nAll-day events\n"
+    listing = {"messages": [{"id": "reply"}, {"id": "real"}]}  # newest-first
+    messages = {"reply": _plain_message(reply, "Re: Daily planner"),
+                "real": _plain_message(real, "Daily planner")}
+    events = fetch_calls(FakeService(listing, messages), "s+planner@x.com", date(2026, 6, 24))
+    assert [e.title for e in events] == ["Real Event"]
 
 
 def test_gmail_scopes_use_spreadsheets() -> None:
