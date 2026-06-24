@@ -45,8 +45,9 @@ Pick the target from the non-flag arguments:
     ```bash
     WT=$(mktemp -d)
     git worktree add --detach "$WT"
-    git -C "$WT" fetch origin "pull/<n>/head"
     BASE=$(gh pr view <n> --json baseRefName -q .baseRefName)
+    git -C "$WT" fetch origin "$BASE"          # ensure origin/$BASE exists for the reset below
+    git -C "$WT" fetch origin "pull/<n>/head"  # fetch PR head last → FETCH_HEAD points to it
     git -C "$WT" checkout FETCH_HEAD
     git -C "$WT" reset --soft "origin/$BASE"   # PR commits now appear as a working diff
     ```
