@@ -48,6 +48,31 @@ def match_people_tags(attendees: list[str], people_tags: list[str]) -> list[str]
     return matched
 
 
+def people_bullets(attendees: list[str], tags: list[str]) -> list[str]:
+    """Return one bullet per attendee: a matching People tag, else the raw name.
+
+    Attendees that resolve to People-template tags are represented by those tags;
+    unmatched attendees (e.g. prose like "and others") are kept as plain text.
+    Deduped, in first-seen order.
+
+    Args:
+        attendees: Attendee name strings from a calendar event.
+        tags: The full set of People tags (existing plus any just added).
+
+    Returns:
+        Tag and/or plain-text entries, deduplicated, in attendee order.
+    """
+    bullets: list[str] = []
+    for attendee in attendees:
+        name = attendee.strip()
+        if not name:
+            continue
+        for entry in match_people_tags([name], tags) or [name]:
+            if entry not in bullets:
+                bullets.append(entry)
+    return bullets
+
+
 def _looks_like_name(text: str) -> bool:
     """Return True for a plausible "First Last" person name (2-3 capitalized words)."""
     tokens = text.split()

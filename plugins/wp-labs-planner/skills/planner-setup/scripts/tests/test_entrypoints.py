@@ -31,7 +31,8 @@ def test_merge_calls_adds_people_tags_from_attendees() -> None:
     fetched = [{"title": "Demo Hour", "time": "18:00", "summary": "",
                 "attendees": ["Sherry Zhou", "organized by PLACEHOLDER"]}]
     merged = daily_mod._merge_calls(fetched, [], ["#vip/ray_rouleau", "#wpl/sherry"])
-    assert merged[0]["people"] == ["#wpl/sherry"]
+    # matched attendee -> tag; unmatched -> plain text bullet
+    assert merged[0]["people"] == ["#wpl/sherry", "organized by PLACEHOLDER"]
 
 
 def test_resolve_people_appends_new_attendees_to_template(tmp_path: Path) -> None:

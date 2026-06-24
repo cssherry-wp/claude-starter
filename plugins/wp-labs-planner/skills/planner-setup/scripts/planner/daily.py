@@ -15,7 +15,7 @@ from planner.config import Config, load_config
 from planner.errors import VaultIOError
 from planner.gitcommit import commit_files, is_git_repo
 from planner.obsidian import Vault, make_vault
-from planner.people import match_people_tags, new_person_tags, parse_people_tags
+from planner.people import new_person_tags, parse_people_tags, people_bullets
 from planner.render_daily import render_daily
 from planner.synthesis import synthesize_daily
 
@@ -128,12 +128,12 @@ def _merge_calls(fetched: list[dict], llm_calls: list[dict],
     merged = []
     for event in fetched:
         extra = enrichment.get(event.get("title", ""), {})
-        tags = match_people_tags(event.get("attendees", []), people_tags or [])
+        bullets = people_bullets(event.get("attendees", []), people_tags or [])
         merged.append({
             "title": event.get("title", ""),
             "time": event.get("time", ""),
             "project": extra.get("project", ""),
-            "people": tags,
+            "people": bullets,
             "previous_summary": event.get("summary") or extra.get("previous_summary", ""),
         })
     return merged

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from planner.people import match_people_tags, new_person_tags, parse_people_tags
+from planner.people import (
+    match_people_tags,
+    new_person_tags,
+    parse_people_tags,
+    people_bullets,
+)
 
 _PEOPLE = """#wpl/sushil
 #wpl/juno
@@ -53,3 +58,14 @@ def test_new_person_tags_skips_existing_and_dedupes() -> None:
 def test_new_person_tags_ignores_non_name_noise() -> None:
     noise = ["organized by PLACEHOLDER", "no listed attendees", "Sherry only / no listed"]
     assert new_person_tags(noise, [], "person") == []
+
+
+def test_people_bullets_mixes_tags_and_plain_text() -> None:
+    tags = parse_people_tags(_PEOPLE)
+    bullets = people_bullets(["Ray Rouleau", "and others", "Sherry Zhou"], tags)
+    assert bullets == ["#vip/ray_rouleau", "and others", "#wpl/sherry"]
+
+
+def test_people_bullets_dedupes_resolved_organizer() -> None:
+    tags = parse_people_tags(_PEOPLE)
+    assert people_bullets(["Sherry Zhou", "organized by Sherry"], tags) == ["#wpl/sherry"]
