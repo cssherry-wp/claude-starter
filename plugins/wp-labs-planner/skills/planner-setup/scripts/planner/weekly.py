@@ -4,13 +4,14 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
 from planner.collectors.vault import list_projects, open_tasks
 from planner.config import Config, load_config
 from planner.gitcommit import commit_files, is_git_repo
-from planner.obsidian import make_vault
+from planner.obsidian import Vault, make_vault
 from planner.render_weekly import render_weekly
 from planner.synthesis import synthesize_weekly
 
@@ -21,7 +22,7 @@ def _load_prompt(name: str) -> str:
     return (Path(__file__).resolve().parent.parent / "templates" / "prompts" / name).read_text()
 
 
-def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
+def _safe(label: str, fn: Callable[[], object]) -> object:
     try:
         return fn()
     except Exception as exc:  # noqa: BLE001 — resilience
@@ -29,7 +30,7 @@ def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
         return []
 
 
-def _gather_weekly(vault, cfg: Config) -> tuple[dict, list]:  # type: ignore[no-untyped-def]
+def _gather_weekly(vault: Vault, cfg: Config) -> tuple[dict, list]:
     projects: list = _safe("list_projects", lambda: list_projects(vault, cfg)) or []  # type: ignore[assignment]
     payload = {
         "projects": [{"name": p.name, "content": p.content} for p in projects],

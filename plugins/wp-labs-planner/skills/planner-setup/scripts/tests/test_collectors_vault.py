@@ -45,6 +45,17 @@ def test_open_tasks_excludes_templates(tmp_path: Path) -> None:
     assert not any("ignored" in t for t in texts)
 
 
+def test_open_tasks_ignores_fenced_code_blocks(tmp_path: Path) -> None:
+    proj = tmp_path / "00-InProgress" / "A5"
+    proj.mkdir(parents=True)
+    (proj / "00-A5.md").write_text(
+        "# A5\n## TODO\n- [ ] real task\n```md\n- [ ] code-block example\n```\n")
+    tasks = open_tasks(FilesystemVault(str(tmp_path)), cfg_for(tmp_path))
+    texts = [t.text for t in tasks]
+    assert any("real task" in t for t in texts)
+    assert not any("code-block example" in t for t in texts)
+
+
 def test_recent_notes_includes_yesterday(tmp_path: Path) -> None:
     v = build_vault(tmp_path)
     notes = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path=None)

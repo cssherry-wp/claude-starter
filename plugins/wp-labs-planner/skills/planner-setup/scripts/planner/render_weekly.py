@@ -1,14 +1,13 @@
 """Render the weekly overview and update project ## Status / ## Timeline."""
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from planner.collectors.vault import Project
 from planner.config import Config
-from planner.errors import priority_emoji
+from planner.errors import priority_emoji, priority_rank
 from planner.obsidian import Vault
-
-_PRIORITY_RANK = {"highest": 0, "high": 1, "medium": 2, "low": 3, "lowest": 4}
 
 WEEKLY_DATAVIEW = (
     "```dataview\n"
@@ -21,7 +20,7 @@ WEEKLY_DATAVIEW = (
 
 
 def _ordered_tasks(tasks: list[dict]) -> list[dict]:
-    return sorted(tasks, key=lambda t: _PRIORITY_RANK.get(t.get("priority", "medium"), 2.5))
+    return sorted(tasks, key=lambda t: priority_rank(t.get("priority", "")))
 
 
 def build_weekly_body(synthesis: dict, gen_day: date) -> str:
@@ -44,11 +43,12 @@ def build_weekly_body(synthesis: dict, gen_day: date) -> str:
             emoji = priority_emoji(task.get("priority", ""))
             lines.append(f"- [ ] {task.get('text', '').strip()} {emoji}".rstrip())
         lines.append("")
-    statuses = synthesis.get("projects", [])
+    statuses = [p for p in synthesis.get("projects", []) if p.get("name")]
     if statuses:
         lines.append("## Project statuses")
         for proj in statuses:
-            lines.append(f"- **[[00-{proj['name']}|{proj['name']}]]** — {proj.get('status', '')}")
+            name = proj["name"]
+            lines.append(f"- **[[00-{name}|{name}]]** — {proj.get('status', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -68,12 +68,12 @@ def update_project_section(
     """
     stamp = (entry_date or date.today()).isoformat()
     bullet = f"- {stamp} — {dated_line}"
-    marker = f"## {heading}"
-    if marker in content:
-        idx = content.index(marker) + len(marker)
+    match = re.search(rf"^## {re.escape(heading)}[ \t]*$", content, re.MULTILINE)
+    if match:
+        idx = match.end()
         return content[:idx] + "\n" + bullet + content[idx:]
-    todo = content.find("## TODO")
-    insert_at = todo if todo != -1 else len(content)
+    todo = re.search(r"^## TODO[ \t]*$", content, re.MULTILINE)
+    insert_at = todo.start() if todo else len(content)
     block = f"## {heading}\n{bullet}\n\n"
     return content[:insert_at] + block + content[insert_at:]
 
@@ -96,7 +96,7 @@ def render_weekly(vault: Vault, cfg: Config, synthesis: dict,
     weekly_path = f"{cfg.vault.weekly_output_dir}/{gen_day.isoformat()}-week-overview.md"
     vault.write(weekly_path, build_weekly_body(synthesis, gen_day))
     touched.append(weekly_path)
-    status_by_name = {p["name"]: p for p in synthesis.get("projects", [])}
+    status_by_name = {p["name"]: p for p in synthesis.get("projects", []) if p.get("name")}
     for proj in projects:
         info = status_by_name.get(proj.name)
         if not info:

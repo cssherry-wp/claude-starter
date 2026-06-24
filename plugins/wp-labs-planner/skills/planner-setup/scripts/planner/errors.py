@@ -37,3 +37,20 @@ def priority_emoji(level: str) -> str:
         The emoji string for the priority level, or "" if unknown.
     """
     return PRIORITY_EMOJI.get(level.strip().lower(), "")
+
+
+def priority_rank(level: str) -> int:
+    """Return the sort rank for a priority level (0 = highest).
+
+    The ordering is derived from ``PRIORITY_EMOJI`` so the rank and emoji never
+    drift apart. Unknown or blank levels rank as "medium".
+
+    Args:
+        level: Priority level string (case-insensitive, whitespace-trimmed).
+
+    Returns:
+        Zero-based rank; lower sorts first.
+    """
+    keys = list(PRIORITY_EMOJI)
+    norm = level.strip().lower()
+    return keys.index(norm) if norm in keys else keys.index("medium")

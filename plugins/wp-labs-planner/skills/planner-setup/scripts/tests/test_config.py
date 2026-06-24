@@ -63,3 +63,27 @@ def test_gdoc_id_accepts_full_url(tmp_path: Path) -> None:
 def test_gdoc_id_accepts_bare_id() -> None:
     cfg = load_config(str(FIXTURE))
     assert cfg.google.gdoc_id == "1AbCdEfGhIjKlMnOpQrStUvWxYz"
+
+
+def test_scalar_onenote_files_coerced_to_list(tmp_path: Path) -> None:
+    text = FIXTURE.read_text().replace(
+        "  files:\n    - ~/OneNote/Work.one", "  files: ~/OneNote/Work.one")
+    bad = tmp_path / "c.yaml"
+    bad.write_text(text)
+    cfg = load_config(str(bad))
+    assert cfg.onenote.files == [str(Path("~/OneNote/Work.one").expanduser())]
+
+
+def test_non_integer_port_raises_config_error(tmp_path: Path) -> None:
+    text = FIXTURE.read_text().replace("port: 27124", "port: notaport")
+    bad = tmp_path / "c.yaml"
+    bad.write_text(text)
+    with pytest.raises(ConfigError, match="obsidian.port"):
+        load_config(str(bad))
+
+
+def test_malformed_yaml_raises_config_error(tmp_path: Path) -> None:
+    bad = tmp_path / "c.yaml"
+    bad.write_text("google: [unterminated\n")
+    with pytest.raises(ConfigError, match="Invalid YAML"):
+        load_config(str(bad))

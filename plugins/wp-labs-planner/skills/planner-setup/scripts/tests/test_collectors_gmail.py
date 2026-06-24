@@ -11,7 +11,7 @@ class FakeMessages:
     def __init__(self, listing: dict, messages: dict) -> None:
         self._listing, self._messages = listing, messages
 
-    def list(self, userId: str, q: str):  # noqa: N803 (Google API kwarg)
+    def list(self, userId: str, q: str, pageToken: str | None = None):  # noqa: N803 (Google API kwargs)
         self._last_q = q
         return _Exec(self._listing)
 
@@ -76,3 +76,21 @@ def test_event_is_future_past_utc() -> None:
 
 def test_event_is_future_unparseable_is_lenient() -> None:
     assert _event_is_future("garbage", _NOW) is True
+
+
+class _PagedMessages(FakeMessages):
+    def list(self, userId: str, q: str, pageToken: str | None = None):  # noqa: N803
+        if pageToken is None:
+            return _Exec({"messages": [{"id": "m1"}], "nextPageToken": "p2"})
+        return _Exec({"messages": [{"id": "m2"}]})
+
+
+def test_fetch_accomplishments_follows_pagination() -> None:
+    messages = {
+        "m1": {"snippet": "first", "payload": {"headers": [{"name": "Subject", "value": "One"}]}},
+        "m2": {"snippet": "second", "payload": {"headers": [{"name": "Subject", "value": "Two"}]}},
+    }
+    svc = FakeService({}, messages)
+    svc._m = _PagedMessages({}, messages)
+    md = fetch_accomplishments(svc, "s+planner@x.com", date(2026, 6, 22))
+    assert "One" in md and "Two" in md  # second page not dropped

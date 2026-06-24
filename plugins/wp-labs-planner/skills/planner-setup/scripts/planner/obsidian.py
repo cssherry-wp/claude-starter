@@ -1,6 +1,7 @@
 """Vault I/O abstraction: filesystem and native /mcp/ backends."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Protocol
 
@@ -23,13 +24,12 @@ class Vault(Protocol):
 
 def _insert_under_heading(body: str, heading: str, content: str, operation: str) -> str:
     """Insert content relative to a `## heading` (append=end of section, prepend=start)."""
-    marker = f"## {heading}"
-    start = body.find(marker)
-    if start == -1:
+    match = re.search(rf"^## {re.escape(heading)}[ \t]*$", body, re.MULTILINE)
+    if match is None:
         raise VaultIOError(f"Heading '## {heading}' not found")
-    after = start + len(marker)
-    nxt = body.find("\n## ", after)
-    section_end = len(body) if nxt == -1 else nxt
+    after = match.end()
+    nxt = re.search(r"^## ", body[after:], re.MULTILINE)
+    section_end = len(body) if nxt is None else after + nxt.start()
     block = ("\n" + content.strip() + "\n")
     if operation == "prepend":
         return body[:after] + block + body[after:]

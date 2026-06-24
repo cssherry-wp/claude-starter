@@ -66,3 +66,12 @@ def test_patch_heading_missing_heading_raises(tmp_path: Path) -> None:
     v = FilesystemVault(str(tmp_path))
     with pytest.raises(VaultIOError):
         v.patch_heading("note.md", "Nonexistent", "- x")
+
+
+def test_patch_heading_ignores_prefix_collision(tmp_path: Path) -> None:
+    (tmp_path / "note.md").write_text("## Notes archive\n- a\n## Notes\n- b\n")
+    v = FilesystemVault(str(tmp_path))
+    v.patch_heading("note.md", "Notes", "- new", operation="append")
+    body = v.read("note.md")
+    assert body.index("- new") > body.index("- b")  # under exact '## Notes', not the archive
+    assert "## Notes archive\n- a" in body  # prefix-collision heading untouched

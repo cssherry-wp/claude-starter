@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from planner.collectors import gdoc, gmail, onenote
 from planner.collectors.vault import recent_notes
 from planner.config import Config, load_config
 from planner.gitcommit import commit_files, is_git_repo
-from planner.obsidian import make_vault
+from planner.obsidian import Vault, make_vault
 from planner.render_daily import render_daily
 from planner.synthesis import synthesize_daily
 
@@ -22,7 +23,7 @@ def _load_prompt(name: str) -> str:
     return (Path(__file__).resolve().parent.parent / "templates" / "prompts" / name).read_text()
 
 
-def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
+def _safe(label: str, fn: Callable[[], object]) -> object:
     try:
         return fn()
     except Exception as exc:  # noqa: BLE001 — resilience: degrade, never abort
@@ -30,7 +31,7 @@ def _safe(label: str, fn) -> object:  # type: ignore[no-untyped-def]
         return f"⚠️ {label} unavailable"
 
 
-def _gather_daily(vault, cfg: Config, today: date) -> dict:  # type: ignore[no-untyped-def]
+def _gather_daily(vault: Vault, cfg: Config, today: date) -> dict:
     week_start = date.fromordinal(today.toordinal() - today.weekday())
     creds_holder: dict = {}
 

@@ -85,13 +85,26 @@ def _header(message: dict[str, Any], name: str) -> str:
     return ""
 
 
+def _list_message_ids(service: Any, q: str) -> list[str]:
+    """Return all message ids matching `q`, following nextPageToken to completion."""
+    ids: list[str] = []
+    page_token: str | None = None
+    while True:
+        listing = service.users().messages().list(
+            userId="me", q=q, pageToken=page_token
+        ).execute()
+        ids.extend(ref["id"] for ref in listing.get("messages", []))
+        page_token = listing.get("nextPageToken")
+        if not page_token:
+            return ids
+
+
 def fetch_accomplishments(service: Any, planner_address: str, since: date) -> str:
     """Return Markdown bullets for non-invite messages to the alias since `since`."""
     q = f"to:{planner_address} after:{since.strftime('%Y/%m/%d')} -has:attachment"
-    listing = service.users().messages().list(userId="me", q=q).execute()
     lines: list[str] = []
-    for ref in listing.get("messages", []):
-        msg = service.users().messages().get(userId="me", id=ref["id"], format="full").execute()
+    for msg_id in _list_message_ids(service, q):
+        msg = service.users().messages().get(userId="me", id=msg_id, format="full").execute()
         subject = _header(msg, "Subject") or "(no subject)"
         snippet = msg.get("snippet", "").strip()
         lines.append(f"- **{subject}** — {snippet}")
@@ -126,11 +139,10 @@ def _decode_part(part: dict[str, Any]) -> str:
 def fetch_calls(service: Any, planner_address: str) -> list[CalendarEvent]:
     """Return future-dated timed calendar events from invite emails to the alias."""
     q = f"to:{planner_address} has:attachment"
-    listing = service.users().messages().list(userId="me", q=q).execute()
     events: list[CalendarEvent] = []
     now = datetime.now(timezone.utc)
-    for ref in listing.get("messages", []):
-        msg = service.users().messages().get(userId="me", id=ref["id"], format="full").execute()
+    for msg_id in _list_message_ids(service, q):
+        msg = service.users().messages().get(userId="me", id=msg_id, format="full").execute()
         for part in msg.get("payload", {}).get("parts", []):
             if part.get("mimeType") == "text/calendar":
                 ev = parse_ics(_decode_part(part))

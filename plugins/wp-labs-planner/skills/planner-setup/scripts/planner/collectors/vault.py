@@ -96,7 +96,13 @@ def open_tasks(vault: Vault, cfg: Config) -> list[OpenTask]:
     tasks: list[OpenTask] = []
     for proj in list_projects(vault, cfg):
         heading = ""
+        in_code_fence = False
         for line in proj.content.splitlines():
+            if line.lstrip().startswith("```"):
+                in_code_fence = not in_code_fence
+                continue
+            if in_code_fence:
+                continue
             if line.startswith("## "):
                 heading = line[3:].strip()
             elif line.lstrip().startswith("- [ ]"):

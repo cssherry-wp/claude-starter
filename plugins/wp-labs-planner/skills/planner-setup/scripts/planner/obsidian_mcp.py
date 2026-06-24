@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import ssl
+import urllib.error
 import urllib.request
 from typing import Any, Protocol
 
@@ -79,9 +80,12 @@ class HttpTransport:
         req.add_header("MCP-Protocol-Version", PROTOCOL_VERSION)
         if session:
             req.add_header("Mcp-Session-Id", session)
-        with urllib.request.urlopen(req, context=self._ctx, timeout=30) as resp:
-            sid = resp.headers.get("Mcp-Session-Id") or session
-            text = resp.read().decode("utf-8")
+        try:
+            with urllib.request.urlopen(req, context=self._ctx, timeout=30) as resp:
+                sid = resp.headers.get("Mcp-Session-Id") or session
+                text = resp.read().decode("utf-8")
+        except (urllib.error.URLError, OSError) as exc:
+            raise VaultIOError(f"MCP request to {self._url} failed: {exc}") from exc
         return _parse_sse(text), sid
 
 

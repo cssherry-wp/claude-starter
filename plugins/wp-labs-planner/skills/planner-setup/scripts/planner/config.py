@@ -68,7 +68,16 @@ class Config:
 
 
 def _expand(value: str) -> str:
-    return str(Path(os.path.expanduser(value))) if value else value
+    return str(Path(os.path.expandvars(os.path.expanduser(value)))) if value else value
+
+
+def _as_list(value: Any) -> list[Any]:
+    """Coerce a YAML scalar or sequence to a list (a bare string becomes [string])."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
 
 
 def _require(data: dict[str, Any], section: str, key: str) -> Any:
@@ -96,7 +105,7 @@ def _build_google(g: dict[str, Any]) -> GoogleCfg:
 def _build_onenote(o: dict[str, Any]) -> OneNoteCfg:
     """Validate and construct OneNoteCfg from the raw onenote section."""
     return OneNoteCfg(
-        files=[_expand(f) for f in o.get("files", [])],
+        files=[_expand(f) for f in _as_list(o.get("files"))],
         converter_command=o.get("converter_command", ""),
     )
 
@@ -110,17 +119,21 @@ def _build_vault(v: dict[str, Any]) -> VaultCfg:
         projects_dir=v.get("projects_dir", "00-InProgress"),
         daily_output_dir=v.get("daily_output_dir", "zz-Sherry_Daily"),
         weekly_output_dir=v.get("weekly_output_dir", "zz-Sherry_Weekly"),
-        todo_files=v.get("todo_files", []),
+        todo_files=_as_list(v.get("todo_files")),
         git_commit=bool(v.get("git_commit", True)),
     )
 
 
 def _build_obsidian(ob: dict[str, Any]) -> ObsidianCfg:
     """Validate and construct ObsidianCfg from the raw obsidian section."""
+    try:
+        port = int(ob.get("port", 27124))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("obsidian.port must be an integer") from exc
     cfg = ObsidianCfg(
         mode=ob.get("mode", "mcp"),
         host=ob.get("host", "127.0.0.1"),
-        port=int(ob.get("port", 27124)),
+        port=port,
         cert_path=_expand(ob.get("cert_path", "")),
         api_key_env=ob.get("api_key_env", "OBSIDIAN_API_KEY"),
     )
@@ -148,7 +161,10 @@ def load_config(path: str) -> Config:
     p = Path(os.path.expanduser(path))
     if not p.is_file():
         raise ConfigError(f"Config file not found: {path}")
-    raw = yaml.safe_load(p.read_text()) or {}
+    try:
+        raw = yaml.safe_load(p.read_text()) or {}
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"Invalid YAML in config file {path}: {exc}") from exc
     g, o = raw.get("google", {}), raw.get("onenote", {})
     v, ob, ll = raw.get("vault", {}), raw.get("obsidian", {}), raw.get("llm", {})
     return Config(

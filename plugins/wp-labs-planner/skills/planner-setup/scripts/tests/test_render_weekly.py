@@ -34,6 +34,19 @@ def test_update_project_section_creates_and_prepends() -> None:
     assert out.index("## Status") < out.index("## TODO")
 
 
+def test_update_project_section_ignores_heading_prefix_collision() -> None:
+    content = "# P\n## Status updates\n- noise\n## TODO\n"
+    out = update_project_section(content, "Status", "real", date(2026, 6, 26))
+    assert "## Status\n- 2026-06-26 — real" in out  # real exact-match section created
+    assert "## Status updates\n- noise" in out  # prefix-collision heading untouched
+
+
+def test_build_weekly_body_skips_project_without_name() -> None:
+    synthesis = {"projects": [{"status": "orphan"}, {"name": "VIP", "status": "ok"}], "groups": []}
+    body = build_weekly_body(synthesis, date(2026, 6, 26))  # no KeyError
+    assert "VIP" in body and "orphan" not in body
+
+
 def test_render_weekly_writes_and_updates(tmp_path: Path) -> None:
     proj_dir = tmp_path / "00-InProgress" / "VIP"
     proj_dir.mkdir(parents=True)
