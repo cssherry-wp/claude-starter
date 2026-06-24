@@ -26,7 +26,7 @@ def fixed_list:
 def unanchored_list:
   [ (.unanchored // [])[]
     | "- \(.body) _(confidence \(.confidence))_"
-      + (if .hint then " — _\(.hint)_" else "" end) ];
+      + (if (.hint // "") != "" then " — _\(.hint)_" else "" end) ];
 
 {
   commit_id: $commit_id,

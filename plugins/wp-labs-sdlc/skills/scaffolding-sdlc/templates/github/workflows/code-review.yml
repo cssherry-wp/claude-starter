@@ -62,7 +62,7 @@ jobs:
             JSON schema in the change-review skill: line-anchored findings (path+line inside
             the diff) go in findings[] with status "fixed" or "unfixed"; everything else goes
             in unanchored[]. Always write the file, even if there are no findings.
-          # Write is required so the agent can CREATE change-review-findings.md (a new file);
+          # Write is required so the agent can CREATE change-review-findings.json (a new file);
           # Edit only modifies existing files. The job token is read-only, so Write only touches
           # the ephemeral working tree — no repo-write power. (Bash, already allowed, could create
           # the file too, so Write adds no net capability.)
