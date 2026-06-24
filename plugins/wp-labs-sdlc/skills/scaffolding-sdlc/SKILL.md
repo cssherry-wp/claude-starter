@@ -57,6 +57,8 @@ directory; copy from there.
      read-only `review` job runs `change-review` and a privileged `apply` job
      applies its patch + posts findings), `claude.yml`,
      `claude-comment-triage.yml`, `pr-status-labels.yml`, `pr-rebase.yml`
+   - branch protection on the default branch (require a PR to merge; block
+     force-push and deletion) — see "Set branch protection" below
    - `dependabot.yml`; the managed labels; hosting (`Dockerfile`,
      `docker-compose.yml`, `infra/` Bicep, `azure-deploy.yml`)
 
@@ -123,6 +125,38 @@ directory; copy from there.
    the repo secrets above (incl. Azure OIDC if hosting was added), and
    (recommended) enable branch protection requiring the CI checks.
 
+## Set branch protection (default branch)
+
+`code-review.yml`'s `apply` job pushes `[autofix]` commits, so the default branch must force
+changes through a reviewable PR. After the workflows are in place, set protection (replace
+`$OWNER`/`$REPO`/`$DEFAULT_BRANCH`):
+
+```bash
+gh api -X PUT "repos/$OWNER/$REPO/branches/$DEFAULT_BRANCH/protection" \
+  -H "Accept: application/vnd.github+json" --input - <<'JSON'
+{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": { "required_approving_review_count": 0, "dismiss_stale_reviews": true },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+```
+
+- `required_approving_review_count: 0` keeps it usable on **solo personal repos** (GitHub won't
+  let you approve your own PR); raise to `1+` once the repo has another reviewer.
+- **On failure, warn — do not abort the scaffold.** A **private repo on a free personal plan**
+  returns HTTP 403: `Upgrade to GitHub Pro or make this repository public to enable this feature.`
+  Catch the non-zero exit, print the **exact status and message**, then continue — e.g.:
+  > ⚠️ Could not enable branch protection on `$OWNER/$REPO` (HTTP 403): "Upgrade to GitHub Pro
+  > or make this repository public to enable this feature." The `[autofix]` workflow will still
+  > run, but nothing enforces that autofix commits are reviewed before reaching `$DEFAULT_BRANCH`.
+  > Fix: upgrade to GitHub Pro, make the repo public, or review every `[autofix]` PR by hand.
+- Availability: branch protection/rulesets are **free on public repos** (any account); **private
+  repos need GitHub Pro** (personal) or **Team/Enterprise** (org). Not an org-only feature.
+
 ## Key facts
 
 - `claude-comment-triage.yml` loads the `wp-labs-standards@wp-labs-starter`
@@ -132,10 +166,11 @@ directory; copy from there.
   `<!-- claude-autofix -->`; `code-review.yml` skips them.
 - **Branch protection required:** `code-review.yml`'s `apply` job pushes an
   `[autofix]` commit to the PR branch from an agent-derived patch, and the agent
-  runs only on same-repo PRs (forks get no secrets). Consuming repos MUST
-  branch-protect `main`/release branches with required human review and MUST NOT
-  auto-merge on `[autofix]`/bot authorship — that human-review gate is what bounds a
-  prompt-injected patch.
+  runs only on same-repo PRs (forks get no secrets). The scaffolder sets this up
+  automatically (see **Set branch protection** above) and MUST NOT auto-merge on
+  `[autofix]`/bot authorship — the human-review gate is what bounds a prompt-injected
+  patch. On private free-plan repos protection can't be enabled (403); warn and have
+  the user review every `[autofix]` PR by hand instead.
 
 ## Common mistakes
 
