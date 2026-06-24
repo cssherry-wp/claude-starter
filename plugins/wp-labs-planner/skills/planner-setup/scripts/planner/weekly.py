@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 
-from planner.collectors.vault import list_projects, open_tasks
+from planner.collectors.vault import list_projects, open_tasks, recent_notes
 from planner.config import Config, load_config
 from planner.gitcommit import commit_files, is_git_repo
 from planner.obsidian import Vault, make_vault
@@ -30,11 +30,15 @@ def _safe(label: str, fn: Callable[[], object]) -> object:
         return []
 
 
-def _gather_weekly(vault: Vault, cfg: Config) -> tuple[dict, list]:
+def _gather_weekly(vault: Vault, cfg: Config, gen_day: date) -> tuple[dict, list]:
     projects: list = _safe("list_projects", lambda: list_projects(vault, cfg)) or []  # type: ignore[assignment]
+    repo = cfg.vault.path if is_git_repo(cfg.vault.path) else None
+    dailies: list = _safe(  # type: ignore[assignment]
+        "dailies", lambda: recent_notes(vault, cfg, gen_day, repo)) or []
     payload = {
         "projects": [{"name": p.name, "content": p.content} for p in projects],
         "open_tasks": [t.__dict__ for t in (_safe("tasks", lambda: open_tasks(vault, cfg)) or [])],  # type: ignore[attr-defined]
+        "dailies": [{"name": Path(n.path).stem, "content": n.content} for n in dailies],  # type: ignore[attr-defined]
     }
     return payload, projects
 
@@ -50,7 +54,7 @@ def run_weekly(cfg: Config, gen_day: date) -> list[str]:
         List of vault-relative paths that were written.
     """
     vault = make_vault(cfg)
-    payload, projects = _gather_weekly(vault, cfg)
+    payload, projects = _gather_weekly(vault, cfg, gen_day)
     synthesis = synthesize_weekly(cfg.llm, _load_prompt("weekly_synthesis.md"), payload)
     touched = render_weekly(vault, cfg, synthesis, projects, gen_day)
     if cfg.vault.git_commit and is_git_repo(cfg.vault.path):

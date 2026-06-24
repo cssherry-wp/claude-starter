@@ -99,7 +99,8 @@ def test_run_weekly_end_to_end(tmp_path: Path, monkeypatch) -> None:
     cfg.obsidian.mode = "filesystem"
     cfg.vault.git_commit = False
     monkeypatch.setattr(weekly_mod, "make_vault", lambda c: FilesystemVault(str(tmp_path)))
-    monkeypatch.setattr(weekly_mod, "_gather_weekly", lambda vault, cfg: ({"projects": [], "open_tasks": []}, []))
+    monkeypatch.setattr(weekly_mod, "_gather_weekly",
+                        lambda vault, cfg, gen_day: ({"projects": [], "open_tasks": []}, []))
     monkeypatch.setattr(weekly_mod, "synthesize_weekly", lambda cfg, tmpl, payload: {"projects": [], "groups": []})
     touched = weekly_mod.run_weekly(cfg, date(2026, 6, 26))
     assert any("week-overview" in p for p in touched)
