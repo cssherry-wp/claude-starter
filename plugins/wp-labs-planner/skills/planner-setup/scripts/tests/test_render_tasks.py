@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime as _dt
+from pathlib import Path
 
 from planner.collectors.gsheet import CompletedItem, OpenItem
+from planner.obsidian import FilesystemVault
 from planner.render_tasks import (
     TaskRef,
     apply_completed_items,
@@ -208,3 +210,31 @@ def test_apply_llm_tasks_no_patch_for_empty_text() -> None:
     tasks = [{"text": "", "priority": "high"}, {"text": "  ", "priority": "low"}]
     apply_llm_tasks(vault, "daily", tasks, date(2026, 6, 24), index={}, claimed_keys=set())
     assert vault.patches == []
+
+
+# --- self-healing when the daily note lacks the target heading (real-backend repro) ---
+
+def test_apply_llm_tasks_adds_open_items_heading_when_template_omits_it(tmp_path: Path) -> None:
+    """A daily note from a template without '## Open Items' must not break the patch."""
+    (tmp_path / "daily").mkdir()
+    note = tmp_path / "daily" / "2026-06-24.md"
+    note.write_text("## Notes\n\n## TODO\n")  # daily-notes template lacks Open Items
+    vault = FilesystemVault(str(tmp_path))
+    tasks = [{"text": "Deploy service", "priority": "high"}]
+    apply_llm_tasks(vault, "daily", tasks, date(2026, 6, 24), index={}, claimed_keys=set())
+    body = note.read_text()
+    assert "## Open Items" in body
+    assert "- [ ] Deploy service ⏫" in body
+
+
+def test_apply_open_items_adds_open_items_heading_when_template_omits_it(tmp_path: Path) -> None:
+    """apply_open_items self-heals a missing '## Open Items' heading on an existing note."""
+    (tmp_path / "daily").mkdir()
+    note = tmp_path / "daily" / "2026-06-24.md"
+    note.write_text("## Notes\n\n## TODO\n")
+    vault = FilesystemVault(str(tmp_path))
+    items = [OpenItem(text="New thing", status="", carry_over_weeks=0, started_at=None)]
+    apply_open_items(vault, "daily", items, date(2026, 6, 24), index={})
+    body = note.read_text()
+    assert "## Open Items" in body
+    assert "- [ ] New thing" in body

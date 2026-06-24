@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -93,15 +94,26 @@ _OPEN_HEADING = "Open Items"
 _STUB = "## Notes\n\n## Open Items\n\n## TODO\n"
 
 
-def _ensure_note(vault: Any, path: str) -> None:
-    """Create a note with the stub content if it does not exist.
+def _ensure_heading(vault: Any, path: str, heading: str) -> None:
+    """Ensure *path* exists and contains a `## {heading}` section to patch into.
+
+    Creates the note from the stub when absent. When the note already exists but
+    omits the heading — e.g. a daily note built from a Daily Notes template that
+    lacks it — appends the heading so a following patch_heading can target it.
 
     Args:
-        vault: Vault object with exists() and write() methods.
+        vault: Vault object with exists(), read(), and write() methods.
         path: Path to the note file.
+        heading: The level-2 heading (without the leading '## ') that must exist.
     """
     if not vault.exists(path):
         vault.write(path, _STUB)
+        return
+    body = vault.read(path)
+    if re.search(rf"^## {re.escape(heading)}[ \t]*$", body, re.MULTILINE):
+        return
+    separator = "" if body.endswith("\n") else "\n"
+    vault.write(path, f"{body}{separator}\n## {heading}\n")
 
 
 def _reconcile(vault: Any, ref: TaskRef, item: OpenItem, end: date) -> None:
@@ -149,7 +161,7 @@ def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: d
         else:
             _reconcile(vault, ref, item, end)
     if new_lines:
-        _ensure_note(vault, today_path)
+        _ensure_heading(vault, today_path, _OPEN_HEADING)
         vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")
 
 
@@ -196,7 +208,7 @@ def apply_llm_tasks(vault: Any, daily_dir: str, new_tasks: list[dict],
         seen.add(key)
         new_lines.append(_llm_task_line(text, task.get("priority", "")))
     if new_lines:
-        _ensure_note(vault, today_path)
+        _ensure_heading(vault, today_path, _OPEN_HEADING)
         vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")
 
 
@@ -234,6 +246,6 @@ def apply_completed_items(vault: Any, daily_dir: str, items: list[CompletedItem]
             continue
         day = item.completed_at.date()
         path = f"{daily_dir}/{day.isoformat()}.md"
-        _ensure_note(vault, path)
+        _ensure_heading(vault, path, "TODO")
         line = f"- [x] {item.text} ✅ {day.isoformat()}{_duration_suffix(item)}"
         vault.patch_heading(path, "TODO", line, operation="append")
