@@ -4,7 +4,7 @@ import os
 from datetime import date
 from pathlib import Path
 
-from planner.collectors.vault import list_projects, open_tasks, recent_notes
+from planner.collectors.vault import attribute_material, list_projects, open_tasks, recent_notes
 from planner.config import Config, load_config
 from planner.obsidian import FilesystemVault
 
@@ -67,3 +67,20 @@ def test_recent_notes_nonexistent_repo_does_not_raise(tmp_path: Path) -> None:
     v = build_vault(tmp_path)
     result = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path="/nonexistent/repo")
     assert isinstance(result, list)
+
+
+def test_attribute_material_by_tag_and_folder(tmp_path: Path) -> None:
+    v = build_vault(tmp_path)  # existing helper: makes 00-InProgress/A5 + a daily note
+    # A daily note with a project-tagged section.
+    daily = tmp_path / "zz-Sherry_Daily" / "2026-06-23.md"
+    daily.write_text("## Notes\n### Harlo testing #project/Hexarmor\n- decided to ship\n")
+    # An imported page-note inside a project folder.
+    (tmp_path / "00-InProgress" / "Hexarmor").mkdir(parents=True)
+    (tmp_path / "00-InProgress" / "Hexarmor" / "Page.md").write_text(
+        "---\ntags:\n- 2026/06/23\n- project/Hexarmor\n---\n## Notes\nchose vendor X\n")
+    cfg = cfg_for(tmp_path)
+    mats = attribute_material(v, cfg, date(2026, 6, 23), repo_path=None)
+    hexar = mats.get("Hexarmor", [])
+    assert any("decided to ship" in m.text and m.header == "Harlo testing #project/Hexarmor"
+               for m in hexar)
+    assert any(m.note_path.endswith("Hexarmor/Page.md") for m in hexar)

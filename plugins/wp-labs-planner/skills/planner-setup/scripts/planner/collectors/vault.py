@@ -1,6 +1,7 @@
 """Collect projects, recent notes, and open tasks from the vault."""
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -35,6 +36,20 @@ class OpenTask:
     text: str
     source_path: str
     heading: str
+
+
+@dataclass
+class Material:
+    """A section from a recent note attributed to a project."""
+
+    project: str
+    note_path: str
+    header: str
+    text: str
+
+
+_PROJECT_TAG = re.compile(r"#project/([A-Za-z0-9_-]+)")
+_PROJECT_LINK = re.compile(r"\[\[00-([A-Za-z0-9_ -]+?)(?:[#|\]])")
 
 
 def list_projects(vault: Vault, cfg: Config) -> list[Project]:
@@ -197,3 +212,69 @@ def recent_notes(
             RecentNote(path=p, mtime=vault.stat_mtime(p), content=vault.read(p))
         )
     return notes
+
+
+def _project_for_folder(path: str, cfg: Config) -> str | None:
+    """Extract project name from a path if it resides in projects_dir.
+
+    Args:
+        path: The file path to check.
+        cfg: Configuration containing projects_dir.
+
+    Returns:
+        Project name if path is under projects_dir, else None.
+    """
+    parts = path.split("/")
+    # Handle "./" prefix in paths
+    if parts[0] == ".":
+        parts = parts[1:]
+    if len(parts) >= 2 and parts[0] == cfg.vault.projects_dir:
+        return parts[1]
+    return None
+
+
+def attribute_material(
+    vault: Vault, cfg: Config, today: date, repo_path: str | None
+) -> dict[str, list[Material]]:
+    """Attribute recent notes' sections to projects via tags / links / folder.
+
+    Args:
+        vault: The vault to read from.
+        cfg: Configuration containing project information.
+        today: The current date for recent note filtering.
+        repo_path: Path to a git repository (optional).
+
+    Returns:
+        Dictionary mapping project names to lists of Material objects.
+    """
+    out: dict[str, list[Material]] = {}
+    for note in recent_notes(vault, cfg, today, repo_path):
+        folder_project = _project_for_folder(note.path, cfg)
+        header = ""
+        section_projects: set[str] = set()
+        for line in note.content.splitlines():
+            is_header = False
+            if line.startswith("#") and " " in line[:4] + " ":
+                if line.lstrip("#").startswith(" "):
+                    header = line.lstrip("# ").rstrip()
+                    is_header = True
+                    # Extract tags from the header line
+                    tagged = {m for m in _PROJECT_TAG.findall(line)}
+                    tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
+                    # Use tagged projects or folder project, not restricted to valid
+                    section_projects = tagged or (
+                        {folder_project} if folder_project else set()
+                    )
+            if not is_header:
+                tagged = {m for m in _PROJECT_TAG.findall(line)}
+                tagged |= {m.strip() for m in _PROJECT_LINK.findall(line)}
+                targets = tagged or section_projects or (
+                    {folder_project} if folder_project else set()
+                )
+            else:
+                targets = section_projects
+            for proj in targets:
+                out.setdefault(proj, []).append(
+                    Material(proj, note.path, header, line.strip())
+                )
+    return out
