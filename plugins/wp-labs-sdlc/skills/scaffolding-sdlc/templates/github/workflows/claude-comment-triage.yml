@@ -51,6 +51,12 @@ jobs:
       id-token: write       # OAuth for claude-code-action
       actions: read         # read CI results
     steps:
+      - name: Log trigger
+        env:
+          EVENT: ${{ github.event_name }}
+          NUM: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "::notice::comment-triage invoked by '$EVENT' on PR #$NUM"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

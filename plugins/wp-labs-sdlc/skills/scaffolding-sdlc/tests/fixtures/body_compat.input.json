@@ -1,0 +1,10 @@
+{
+  "reviewed": "PR #4", "summary": "Legacy.",
+  "findings": [
+    { "path": "src/d.ts", "line": 5, "side": "RIGHT", "status": "unfixed", "confidence": 50,
+      "body": "Legacy body-only finding.\nSecond line." }
+  ],
+  "unanchored": [
+    { "confidence": 40, "body": "Legacy unanchored note." }
+  ]
+}

@@ -23,12 +23,33 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: npm audit
-        run: '[ -f package-lock.json ] && npm audit --audit-level=high || echo "no package-lock.json; skipping npm audit"'
+        # Non-blocking, but a finding must be VISIBLE — distinguish "no lockfile"
+        # (genuine skip) from "audit failed" (real advisories) instead of one echo.
+        run: |
+          if [ -f package-lock.json ]; then
+            if npm audit --audit-level=high; then
+              echo "✅ npm audit: no high-severity advisories" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::npm audit found high-severity advisories (non-blocking — see log above)"
+              echo "⚠️ npm audit: high-severity advisories found — see job log" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "::notice::no package-lock.json; skipped npm audit"
+            echo "⏭️ npm audit: no package-lock.json — skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: pip-audit
         run: |
           if [ -f pyproject.toml ]; then
-            pipx run pip-audit || echo "pip-audit reported findings"
-          else echo "no pyproject.toml; skipping pip-audit"; fi
+            if pipx run pip-audit; then
+              echo "✅ pip-audit: no known vulnerabilities" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::pip-audit reported vulnerabilities (non-blocking — see log above)"
+              echo "⚠️ pip-audit: vulnerabilities reported — see job log" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "::notice::no pyproject.toml; skipped pip-audit"
+            echo "⏭️ pip-audit: no pyproject.toml — skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   semgrep:
     runs-on: ubuntu-latest
@@ -36,6 +57,14 @@ jobs:
     container: { image: returntocorp/semgrep }
     steps:
       - uses: actions/checkout@v5
-      - run: semgrep ci || true
+      - name: semgrep
+        # Non-blocking, but surface the outcome rather than swallowing it with `|| true`.
+        run: |
+          if semgrep ci; then
+            echo "✅ semgrep: no findings" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::semgrep reported findings or errored (non-blocking — see log above)"
+            echo "⚠️ semgrep: findings or error — see job log" >> "$GITHUB_STEP_SUMMARY"
+          fi
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}

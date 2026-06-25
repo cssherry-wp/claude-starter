@@ -1,0 +1,8 @@
+{
+  "commit_id": "deadbeef",
+  "event": "COMMENT",
+  "comments": [
+    { "path": "src/d.ts", "line": 5, "side": "RIGHT", "body": "Legacy body-only finding.\nSecond line.\n\n_(confidence 50)_" }
+  ],
+  "body": "Legacy.\n\n## Other findings (not line-anchored)\n- Legacy unanchored note. _(confidence 40)_\n\n<!-- claude-autofix -->"
+}

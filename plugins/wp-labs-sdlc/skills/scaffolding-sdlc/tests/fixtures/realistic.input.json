@@ -1,0 +1,15 @@
+{
+  "meta": { "target": "PR #5: feat: Phase 2", "files_changed": 42, "insertions": 2951, "deletions": 131 },
+  "findings": [
+    { "path": "packages/ingest/src/glossary.ts", "line": 193, "status": "unfixed", "confidence": 62, "severity": "medium",
+      "summary": "Glossary term spanning a sentence split boundary is silently dropped.",
+      "detail": "extractGlossary receives full paragraph strings; anchorGlossary searches within sentences.",
+      "suggestion": "Log a warning when a term cannot be located in any sentence." }
+  ],
+  "unanchored": [
+    { "category": "efficiency", "confidence": 88,
+      "summary": "ALLOWED_TAGS embeds ~6 KB of tag vocabulary in every prompt.",
+      "detail": "tags.ts joins all 770 tags into the prompt.",
+      "suggestion": "Pass the top-N tags only." }
+  ]
+}

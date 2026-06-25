@@ -1,0 +1,9 @@
+{
+  "meta": { "target": "PR #3" },
+  "summary": "S",
+  "findings": [
+    { "path": "src/c.ts", "line": 30, "start_line": 28, "side": "RIGHT", "status": "unfixed", "severity": "high", "confidence": 85,
+      "summary": "Range issue.", "detail": "Lines 28-30 mishandle the boundary." }
+  ],
+  "unanchored": []
+}

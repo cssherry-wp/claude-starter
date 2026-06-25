@@ -25,6 +25,13 @@ jobs:
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
+      - name: Log trigger
+        env:
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          echo "::notice::Claude invoked by '$EVENT' on $REPO #$NUM"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

@@ -1,0 +1,13 @@
+{
+  "meta": { "target": "PR #2: feat/y → main" },
+  "summary": "### Summary\nAdds a parser.",
+  "findings": [
+    { "path": "src/a.ts", "line": 10, "status": "fixed", "severity": "low", "confidence": 90,
+      "summary": "Unused import removed.", "detail": "The `os` import was unused.", "suggestion": "Drop the import." },
+    { "path": "src/b.ts", "line": 22, "status": "unfixed", "severity": "medium", "confidence": 65,
+      "summary": "Possible null deref on `cfg`.", "detail": "`cfg` may be undefined when config is absent." }
+  ],
+  "unanchored": [
+    { "category": "tests", "confidence": 70, "summary": "No test covers the new error path.", "detail": "Add a case for the throw." }
+  ]
+}

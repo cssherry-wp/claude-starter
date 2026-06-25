@@ -113,6 +113,51 @@ mutation {
 done < threads.txt
 ```
 
+## Create a Review with Inline Comments
+
+Post many inline comments in **one** review (one `pull_request_review` event). Pure
+`gh api` — no LLM. Build the payload from a JSON file and submit it:
+
+```bash
+# payload.json: { "commit_id": "...", "event": "COMMENT", "body": "...",
+#                 "comments": [ { "path": "...", "line": N, "side": "RIGHT", "body": "..." } ] }
+gh api -X POST "repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" --input payload.json
+```
+
+Constraints:
+- Each comment's `line`/`side` MUST fall inside the diff of `commit_id`, and `commit_id`
+  MUST be a commit in the PR — otherwise GitHub rejects the **whole call** with 422.
+  (The reviews API is all-or-nothing; it cannot skip one bad comment.) On 422, re-submit
+  with an empty `comments` array and fold the findings into `body`.
+- Multi-line range: add `start_line` + `start_side` to a comment.
+- `event: "COMMENT"` posts without approving/requesting-changes.
+
+## Resolve Threads Whose Seed Comment Matches a Marker
+
+Resolve every review thread whose first comment contains a marker (e.g. auto-fixed
+findings tagged `<!-- claude-autofix -->`):
+
+```bash
+MARKER='<!-- claude-autofix -->'
+gh api graphql -f query="
+query {
+  repository(owner: \"$OWNER\", name: \"$REPO\") {
+    pullRequest(number: $PR_NUMBER) {
+      reviewThreads(first: 100) {
+        nodes { id isResolved comments(first: 1) { nodes { body } } }
+      }
+    }
+  }
+}" | jq -r --arg m "$MARKER" \
+  '.data.repository.pullRequest.reviewThreads.nodes[]
+   | select(.isResolved | not)
+   | select(.comments.nodes[0].body | contains($m)) | .id' \
+| while read -r tid; do
+    gh api graphql -f query="
+mutation { resolveReviewThread(input: { threadId: \"$tid\" }) { thread { id isResolved } } }"
+  done
+```
+
 ## Complete Example
 
 ```bash

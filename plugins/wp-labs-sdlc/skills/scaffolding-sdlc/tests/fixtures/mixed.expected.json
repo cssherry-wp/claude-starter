@@ -1,0 +1,9 @@
+{
+  "commit_id": "deadbeef",
+  "event": "COMMENT",
+  "comments": [
+    { "path": "src/a.ts", "line": 10, "side": "RIGHT", "body": "**Unused import removed.**\n\nThe `os` import was unused.\n\n_Suggestion:_ Drop the import.\n\n_(confidence 90)_\n\n_Auto-fixed in the `[autofix]` commit._\n\n<!-- claude-autofix -->" },
+    { "path": "src/b.ts", "line": 22, "side": "RIGHT", "body": "**Possible null deref on `cfg`.**\n\n`cfg` may be undefined when config is absent.\n\n_(confidence 65)_" }
+  ],
+  "body": "### Summary\nAdds a parser.\n\n## Auto-fixed (1)\n- `src/a.ts:10` — Unused import removed.\n\n## Other findings (not line-anchored)\n- No test covers the new error path. _(confidence 70)_ — _tests_\n\n<!-- claude-autofix -->"
+}

@@ -21,6 +21,11 @@ jobs:
           NUM=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls" \
             --jq '.[0].number' 2>/dev/null || echo "")
           echo "number=$NUM" >> "$GITHUB_OUTPUT"
+          if [ -z "$NUM" ]; then
+            echo "::warning::could not resolve a PR for head_sha ${{ github.event.workflow_run.head_sha }}; no status label applied."
+          else
+            echo "::notice::resolved PR #$NUM for this CI run"
+          fi
       - name: Apply status label
         if: steps.pr.outputs.number != ''
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
@@ -28,9 +33,11 @@ jobs:
           PR=${{ steps.pr.outputs.number }}
           gh pr edit "$PR" --remove-label check-in-progress --remove-label check-pass --remove-label check-fail || true
           if [ "${{ github.event.action }}" = "requested" ]; then
-            gh pr edit "$PR" --add-label check-in-progress
+            LABEL=check-in-progress
           elif [ "${{ github.event.workflow_run.conclusion }}" = "success" ]; then
-            gh pr edit "$PR" --add-label check-pass
+            LABEL=check-pass
           else
-            gh pr edit "$PR" --add-label check-fail
+            LABEL=check-fail
           fi
+          gh pr edit "$PR" --add-label "$LABEL"
+          echo "::notice::PR #$PR labeled '$LABEL' (CI conclusion: ${{ github.event.workflow_run.conclusion }})"

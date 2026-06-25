@@ -2,7 +2,7 @@
 name: change-review
 description: Review a changeset for a summary, surprises, architecture/security/structure risks, correctness bugs, test coverage, lint/style of new files, and doc freshness — dispatching deep correctness to /code-review and deep security to /security-review, with confidence-scored findings. Reviews the uncommitted working-tree diff by default, or a GitHub PR when given a PR number/URL. Trigger when the user asks to review their changes, review the diff, review a branch before pushing, or review a PR.
 user-invocable: true
-allowed-tools: Read, Bash, Grep, Glob, Agent, Skill, Edit
+allowed-tools: Read, Bash, Grep, Glob, Agent, Skill, Edit, Write
 argument-hint: "[pr-number | pr-url] [--fix] [--comment] [--effort low|medium|high|max]"
 ---
 
@@ -163,8 +163,49 @@ applied; everything else is reported as a suggestion.
   edits into an `[autofix]` commit and pushes it.** Report what was fixed vs left as a suggestion.
 - **`--comment`**: post the report's findings as PR comments (use `github-pr-review` plumbing or
   `gh pr comment`), each with its confidence score; un-fixable and lower-confidence items go here.
-  **In CI the agent instead writes all findings (with scores) to `change-review-findings.md`, and
-  the separate privileged job posts that file as the PR comment.**
+  **In CI the agent instead writes all findings to `change-review-findings.json` (schema below);
+  the separate privileged job turns each line-anchored finding into an inline review comment and
+  posts the rest in the review body.**
+
+### CI findings JSON (`change-review-findings.json`)
+
+When run from CI (read-only mode, `--fix --comment`), write findings as JSON, not prose.
+Decide anchoring yourself — you hold the diff:
+
+- A finding goes in `findings[]` **only if** its `path` + `line` fall inside the PR diff
+  (an inline comment on a line outside the diff is rejected). Everything else (missing test,
+  absent doc, whole-PR concern) goes in `unanchored[]`.
+- A finding's text is three fields: `summary` (one-line headline), `detail` (the full
+  explanation), and `suggestion` (how to fix it). The job renders them as a **bold** headline,
+  then the detail, then a suggestion line. `summary` alone is fine when there's nothing more to
+  add; `detail`/`suggestion` are optional.
+- `status: "fixed"` iff you applied the fix to the working tree under `--fix` (confidence ≥ 80,
+  mechanically fixable). All other findings are `"unfixed"`. Do **not** add the marker to any
+  finding — the job appends it to fixed items.
+- `side`: `"RIGHT"` for head-side/added/context lines, `"LEFT"` for a removed line (optional,
+  defaults to `"RIGHT"`). Set `start_line` only for a multi-line range, else omit it.
+- `unanchored[]` items take a `category` (e.g. `tests`, `efficiency`, `simplification`) plus the
+  same `summary`/`detail`/`suggestion` fields.
+- Always write the file, even with no findings (`{"findings":[],"unanchored":[]}`).
+
+```json
+{
+  "meta": { "target": "PR #123: feat/foo → main", "files_changed": 12 },
+  "findings": [
+    { "path": "src/foo.ts", "line": 42, "side": "RIGHT", "severity": "med", "confidence": 85,
+      "status": "fixed",
+      "summary": "Unused import left after refactor.",
+      "detail": "`os` is no longer referenced once readFile moved to fs/promises.",
+      "suggestion": "Remove the `import os` line." }
+  ],
+  "unanchored": [
+    { "category": "tests", "confidence": 70,
+      "summary": "No test covers the new error path.",
+      "detail": "throwOnMissingConfig has no test asserting it throws.",
+      "suggestion": "Add a case in tests/foo.test.ts." }
+  ]
+}
+```
 
 ## 7. Output format
 
