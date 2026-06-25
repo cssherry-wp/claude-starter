@@ -135,6 +135,7 @@ def _merge_calls(fetched: list[dict], llm_calls: list[dict],
             "project": extra.get("project", ""),
             "people": bullets,
             "previous_summary": event.get("summary") or extra.get("previous_summary", ""),
+            "video_url": event.get("video_url", ""),
         })
     return merged
 

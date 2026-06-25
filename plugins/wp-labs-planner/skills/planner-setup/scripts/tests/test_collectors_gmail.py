@@ -5,7 +5,8 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 from planner.collectors.gmail import (
-    _to_local_hhmm, fetch_accomplishments, fetch_calls, parse_tomorrow_calendar,
+    _to_local_hhmm, extract_video_link, fetch_accomplishments, fetch_calls,
+    parse_tomorrow_calendar,
 )
 
 _PLANNER_BODY = """Chatbot-dashboard docs
@@ -82,6 +83,24 @@ def test_fetch_accomplishments_returns_markdown() -> None:
     md = fetch_accomplishments(svc, "s+planner@x.com", date(2026, 6, 22))
     assert "Done: shipping" in md
     assert "Shipped the thing" in md
+
+
+def test_extract_video_link_finds_zoom_and_teams() -> None:
+    assert extract_video_link("Join https://wp.zoom.us/j/123?pwd=abc now") == \
+        "https://wp.zoom.us/j/123?pwd=abc"
+    assert extract_video_link("link: https://teams.microsoft.com/l/meetup-join/xyz.") == \
+        "https://teams.microsoft.com/l/meetup-join/xyz"
+    assert extract_video_link("no link here") == ""
+    # an unrelated URL is not mistaken for a join link
+    assert extract_video_link("see https://example.com/doc") == ""
+
+
+def test_parse_tomorrow_calendar_captures_video_link() -> None:
+    body = ("Tomorrow's Calendar\nTime\nEvent\nAttendees\nRelevant bullets\n"
+            "1:00–2:00 PM ET\nDemo Hour\nSherry Zhou\nJoin https://wp.zoom.us/j/999\n"
+            "All-day events\n")
+    events = parse_tomorrow_calendar(body, date(2026, 6, 24), ZoneInfo("America/Los_Angeles"))
+    assert events[0].video_url == "https://wp.zoom.us/j/999"
 
 
 def test_to_local_hhmm_converts_et_to_local() -> None:

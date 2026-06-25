@@ -14,11 +14,13 @@ FIXTURE = Path(__file__).parent / "fixtures" / "config_valid.yaml"
 
 def test_merge_calls_uses_fetched_time_and_email_summary() -> None:
     """Title/time come from the parsed email; project from the LLM; email summary wins."""
-    fetched = [{"title": "Demo Hour", "time": "10:00", "summary": "bring slides"}]
+    fetched = [{"title": "Demo Hour", "time": "10:00", "summary": "bring slides",
+                "video_url": "https://wp.zoom.us/j/1"}]
     llm = [{"title": "Demo Hour", "project": "#project/VIP", "previous_summary": "stale"}]
     assert daily_mod._merge_calls(fetched, llm) == [
         {"title": "Demo Hour", "time": "10:00", "project": "#project/VIP",
-         "people": [], "previous_summary": "bring slides"}]
+         "people": [], "previous_summary": "bring slides",
+         "video_url": "https://wp.zoom.us/j/1"}]
 
 
 def test_merge_calls_keeps_events_without_llm_match() -> None:

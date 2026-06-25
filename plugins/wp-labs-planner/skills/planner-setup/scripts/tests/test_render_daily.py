@@ -54,6 +54,21 @@ def test_build_notes_block_time_line_without_project() -> None:
     assert "- 15:00" in block and "#project/" not in block
 
 
+def test_build_notes_block_renders_video_join_link_under_header() -> None:
+    synthesis = {"calls": [{"title": "Sync", "time": "15:00", "project": "#project/VIP",
+                            "video_url": "https://wp.zoom.us/j/42"}]}
+    block = build_notes_block(synthesis)
+    assert "- [Join Zoom](https://wp.zoom.us/j/42)" in block
+    # the join link sits directly under the header, above the time line
+    assert block.index("Join Zoom") < block.index("- 15:00")
+
+
+def test_build_notes_block_no_join_link_when_absent() -> None:
+    synthesis = {"calls": [{"title": "Sync", "time": "15:00", "project": "#project/VIP"}]}
+    block = build_notes_block(synthesis)
+    assert "Join" not in block
+
+
 def test_render_daily_injects(tmp_path: Path) -> None:
     daily = tmp_path / "zz-Sherry_Daily"
     daily.mkdir()

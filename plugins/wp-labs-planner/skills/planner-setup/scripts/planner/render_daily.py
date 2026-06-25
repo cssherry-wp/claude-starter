@@ -7,12 +7,24 @@ from planner.config import Config
 from planner.obsidian import Vault
 
 
+def _join_link(url: str) -> str:
+    """Return a '- [Join <Provider>](url)' bullet for a Zoom/Teams URL, or '' if none."""
+    if not url:
+        return ""
+    lowered = url.lower()
+    label = "Zoom" if "zoom" in lowered else "Teams" if "teams" in lowered else "call"
+    return f"- [Join {label}]({url})"
+
+
 def build_notes_block(synthesis: dict) -> str:
     """Assemble the Markdown injected under the daily note's ## Notes heading."""
     parts: list[str] = []
     for call in synthesis.get("calls", []):
         title = call.get("title", "Event")
         parts.append(f"### {title} {call.get('project', '')}".rstrip())
+        join = _join_link(call.get("video_url", "").strip())
+        if join:
+            parts.append(join)
         time = call.get("time", "").strip()
         if time:
             parts.append(f"- {time} {call.get('project', '')}".rstrip())

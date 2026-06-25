@@ -27,6 +27,10 @@ GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly",
 _PLANNER_TZ = "America/New_York"
 # Matches a cell like "1:00–2:00 PM ET": captures the start time and its meridiem.
 _TIME_RE = re.compile(r"(\d{1,2}):(\d{2})\s*(?:[–\-]\s*\d{1,2}:\d{2})?\s*(AM|PM)", re.IGNORECASE)
+# Matches a Zoom or Microsoft Teams join URL anywhere in an event's cells.
+_VIDEO_LINK_RE = re.compile(
+    r"https?://[^\s<>\"]*(?:zoom\.us|teams\.microsoft\.com|teams\.live\.com)[^\s<>\"]*",
+    re.IGNORECASE)
 
 
 @dataclass
@@ -37,6 +41,23 @@ class CalendarEvent:
     raw: str
     time: str = ""
     summary: str = ""
+    video_url: str = ""
+
+
+def extract_video_link(text: str) -> str:
+    """Return the first Zoom or Microsoft Teams join URL in *text*, or '' if none.
+
+    Trailing sentence punctuation (e.g. a period after the URL) is trimmed so the
+    link stays clickable.
+
+    Args:
+        text: Free text (e.g. an event's flattened cells) to scan for a join link.
+
+    Returns:
+        The matched join URL, or an empty string when no Zoom/Teams link is present.
+    """
+    match = _VIDEO_LINK_RE.search(text)
+    return match.group(0).rstrip(".,;)") if match else ""
 
 
 def get_credentials(cfg: GoogleCfg, scopes: list[str]) -> Credentials:
@@ -181,6 +202,7 @@ def parse_tomorrow_calendar(body: str, event_date: date,
             raw=lines[idx],
             time=_to_local_hhmm(lines[idx], event_date, local_tz),
             summary=" ".join(cells[2:]).strip(),
+            video_url=extract_video_link(" ".join(cells)),
         ))
     return events
 
