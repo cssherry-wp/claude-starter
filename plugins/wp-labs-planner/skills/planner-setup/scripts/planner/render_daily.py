@@ -7,6 +7,21 @@ from planner.config import Config
 from planner.obsidian import Vault
 
 
+_PROJECT_TAG_PREFIX = "#project/"
+
+
+def _header_project(project: str) -> str:
+    """Render an event header's project as a clickable note link, or pass it through.
+
+    A '#project/<Name>' tag becomes '[[00-<Name>|<Name>]]' (linking the project note);
+    any other or empty value is returned unchanged so non-project text still shows.
+    """
+    if project.startswith(_PROJECT_TAG_PREFIX):
+        name = project[len(_PROJECT_TAG_PREFIX):]
+        return f"[[00-{name}|{name}]]"
+    return project
+
+
 def _join_link(url: str) -> str:
     """Return a '- [Join <Provider>](url)' bullet for a Zoom/Teams URL, or '' if none."""
     if not url:
@@ -21,7 +36,7 @@ def build_notes_block(synthesis: dict) -> str:
     parts: list[str] = []
     for call in synthesis.get("calls", []):
         title = call.get("title", "Event")
-        parts.append(f"### {title} {call.get('project', '')}".rstrip())
+        parts.append(f"### {title} {_header_project(call.get('project', ''))}".rstrip())
         join = _join_link(call.get("video_url", "").strip())
         if join:
             parts.append(join)

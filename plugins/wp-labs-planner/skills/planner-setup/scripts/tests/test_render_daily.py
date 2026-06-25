@@ -19,7 +19,7 @@ def test_build_notes_block_has_event_sections_but_not_tasks() -> None:
         "new_tasks": [{"text": "follow up", "priority": "high"}],
     }
     block = build_notes_block(synthesis)
-    assert "### Sync #project/VIP" in block
+    assert "### Sync [[00-VIP|VIP]]" in block  # project is a clickable note link on the header
     assert "- 15:00" in block
     assert "#### Relevant previous summary for Sync" in block
     assert "### 📓 Learnings & Follow-ups" in block
@@ -35,7 +35,7 @@ def test_build_notes_block_renders_people_section() -> None:
         "accomplishments_md": "", "learnings_md": "", "new_tasks": [],
     }
     block = build_notes_block(synthesis)
-    assert "### Demo Hour #project/VIP" in block  # tags no longer on the heading
+    assert "### Demo Hour [[00-VIP|VIP]]" in block  # project linked on the heading
     assert "#### People for Demo Hour" in block
     assert "- #wpl/sherry" in block and "- #vip/ray_rouleau" in block
     # people appear after the time, before any summary
@@ -52,6 +52,13 @@ def test_build_notes_block_time_line_without_project() -> None:
     synthesis = {"calls": [{"title": "Sync", "time": "15:00", "project": ""}]}
     block = build_notes_block(synthesis)
     assert "- 15:00" in block and "#project/" not in block
+
+
+def test_build_notes_block_links_header_project_keeps_time_tag() -> None:
+    synthesis = {"calls": [{"title": "Sync", "time": "15:00", "project": "#project/VIP"}]}
+    block = build_notes_block(synthesis)
+    assert "### Sync [[00-VIP|VIP]]" in block      # header links to the project note
+    assert "- 15:00 #project/VIP" in block          # time line keeps the tag for Dataview
 
 
 def test_build_notes_block_renders_video_join_link_under_header() -> None:

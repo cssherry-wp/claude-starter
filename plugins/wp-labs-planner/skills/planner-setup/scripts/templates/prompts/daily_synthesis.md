@@ -17,6 +17,8 @@ Do not wrap the JSON in markdown code fences.
 
 Map each event to a project using #project/<Name> tags or #<company>/<first_last>
 member tags in the payload. Exclude all-day events. Keep it concise.
+Preserve any existing Markdown links ([text](url)) from the payload verbatim — do
+not alter or drop their URLs.
 
 PAYLOAD:
 {payload}

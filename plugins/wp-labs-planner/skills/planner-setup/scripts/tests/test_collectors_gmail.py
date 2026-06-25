@@ -81,8 +81,9 @@ def test_fetch_accomplishments_returns_markdown() -> None:
                        "payload": {"headers": [{"name": "Subject", "value": "Done: shipping"}]}}}
     svc = FakeService(listing, messages)
     md = fetch_accomplishments(svc, "s+planner@x.com", date(2026, 6, 22))
-    assert "Done: shipping" in md
     assert "Shipped the thing" in md
+    # the subject is a markdown link to the message's Gmail permalink
+    assert "[Done: shipping](https://mail.google.com/mail/u/0/#all/m1)" in md
 
 
 def test_extract_video_link_finds_zoom_and_teams() -> None:

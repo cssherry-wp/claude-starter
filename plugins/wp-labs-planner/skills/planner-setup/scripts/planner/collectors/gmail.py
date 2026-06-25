@@ -111,15 +111,24 @@ def _list_message_ids(service: Any, q: str) -> list[str]:
             return ids
 
 
+def _gmail_permalink(msg_id: str) -> str:
+    """Best-effort Gmail web permalink for a message id (assumes the primary account)."""
+    return f"https://mail.google.com/mail/u/0/#all/{msg_id}"
+
+
 def fetch_accomplishments(service: Any, planner_address: str, since: date) -> str:
-    """Return Markdown bullets for non-invite messages to the alias since `since`."""
+    """Return Markdown bullets for non-invite messages to the alias since `since`.
+
+    Each bullet links the subject to the message's Gmail permalink so it opens in
+    one click. The link is best-effort (assumes the user's primary Gmail account).
+    """
     q = f"to:{planner_address} after:{since.strftime('%Y/%m/%d')} -has:attachment"
     lines: list[str] = []
     for msg_id in _list_message_ids(service, q):
         msg = service.users().messages().get(userId="me", id=msg_id, format="full").execute()
         subject = _header(msg, "Subject") or "(no subject)"
         snippet = msg.get("snippet", "").strip()
-        lines.append(f"- **{subject}** — {snippet}")
+        lines.append(f"- **[{subject}]({_gmail_permalink(msg_id)})** — {snippet}")
     return "\n".join(lines)
 
 
