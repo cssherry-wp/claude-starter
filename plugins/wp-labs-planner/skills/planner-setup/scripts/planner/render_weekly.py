@@ -9,7 +9,7 @@ from planner.collectors.vault import Project
 from planner.config import Config
 from planner.errors import VaultIOError, priority_emoji, priority_rank
 from planner.obsidian import Vault
-from planner.render_tasks import week_end, week_start
+from planner.render_tasks import format_learnings, week_end, week_start
 
 _WEEK_TOKEN = "{{week}}"
 
@@ -102,19 +102,7 @@ def _learnings_block(synthesis: dict) -> str:
     when the synthesis supplies one, falling back to the note (`[[note]]`), or no
     link when the source is blank.
     """
-    lines: list[str] = []
-    for item in synthesis.get("learnings", []):
-        text = str(item.get("text", "")).strip()
-        if not text:
-            continue
-        source = str(item.get("source", "")).strip()
-        header = str(item.get("header", "")).strip()
-        if source:
-            target = f"{source}#{header}" if header else source
-            lines.append(f"- {text} ([[{target}]])")
-        else:
-            lines.append(f"- {text}")
-    return "\n".join(lines)
+    return format_learnings(synthesis.get("learnings", []))
 
 
 def _inject_section(text: str, heading: str, block: str) -> str:

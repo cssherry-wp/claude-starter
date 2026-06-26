@@ -187,6 +187,7 @@ def recent_notes(
     Returns:
         List of RecentNote objects for the past week and recently modified files.
     """
+    today_note = f"{cfg.vault.daily_output_dir}/{today.isoformat()}.md"
     paths: list[str] = []
     for delta in range(1, 8):
         d = today - timedelta(days=delta)
@@ -198,7 +199,11 @@ def recent_notes(
     else:
         recent_b = _mtime_recent(vault, cfg, today, days=2)
     for bp in recent_b:
-        if bp.endswith(".md") and vault.exists(bp) and bp not in paths:
+        # Skip today's own note: feeding it back makes the LLM re-emit today's
+        # events/summary on a re-run (duplicated, stale-on-second-pass content).
+        # _mtime_recent yields "./"-prefixed paths, so match the dir-relative suffix.
+        is_today = bp == today_note or bp.endswith(f"/{today_note}")
+        if bp.endswith(".md") and not is_today and vault.exists(bp) and bp not in paths:
             paths.append(bp)
     notes: list[RecentNote] = []
     for p in paths:

@@ -5,6 +5,13 @@ from datetime import date
 
 from planner.config import Config
 from planner.obsidian import Vault
+from planner.render_tasks import (
+    DAILY_STUB,
+    LEARNINGS_HEADING,
+    WEEK_HEADING,
+    ensure_heading,
+    format_learnings,
+)
 
 
 _PROJECT_TAG_PREFIX = "#project/"
@@ -32,7 +39,13 @@ def _join_link(url: str) -> str:
 
 
 def build_notes_block(synthesis: dict) -> str:
-    """Assemble the Markdown injected under the daily note's ## Notes heading."""
+    """Assemble the per-event Markdown injected under the daily note's ## Notes heading.
+
+    Each event renders as a project-linked header, an optional video join link, the
+    time line (tagged with the project for Dataview), the relevant prior-context
+    summary as a bullet directly under the time, then the attendees. The weekly
+    summary sections are rendered separately by render_daily, below ## New open items.
+    """
     parts: list[str] = []
     for call in synthesis.get("calls", []):
         title = call.get("title", "Event")
@@ -43,22 +56,13 @@ def build_notes_block(synthesis: dict) -> str:
         time = call.get("time", "").strip()
         if time:
             parts.append(f"- {time} {call.get('project', '')}".rstrip())
+        summary = call.get("previous_summary", "").strip()
+        if summary:
+            parts.append(f"- {summary}")
         people = call.get("people") or []
         if people:
             parts.append(f"#### People for {title}")
             parts.extend(f"- {tag}" for tag in people)
-        summary = call.get("previous_summary", "").strip()
-        if summary:
-            parts.append(f"#### Relevant previous summary for {title}")
-            parts.append(f"- {summary}")
-    acc = synthesis.get("accomplishments_md", "").strip()
-    if acc:
-        parts.append("### ✅ This Week So Far")
-        parts.append(acc)
-    learn = synthesis.get("learnings_md", "").strip()
-    if learn:
-        parts.append("### 📓 Learnings & Follow-ups")
-        parts.append(learn)
     return "\n".join(parts)
 
 
@@ -81,14 +85,27 @@ def ensure_daily_note(vault: Vault, cfg: Config, today: date) -> str:
     if runner:
         runner("daily-notes")
     if not vault.exists(path):
-        vault.write(path, "## Notes\n\n## TODO\n")
+        vault.write(path, DAILY_STUB)
     return path
 
 
+def _patch_section(vault: Vault, path: str, heading: str, block: str) -> None:
+    """Append *block* under *heading*, creating the heading first if the note lacks it."""
+    if not block.strip():
+        return
+    ensure_heading(vault, path, heading)
+    vault.patch_heading(path, heading, block, operation="append")
+
+
 def render_daily(vault: Vault, cfg: Config, synthesis: dict, today: date) -> str:
-    """Ensure today's note and inject the synthesized sections under ## Notes."""
+    """Ensure today's note and inject the synthesized sections.
+
+    Events go under ## Notes; the weekly summary lands under ## ✅ This Week So Far
+    and ## 📓 Learnings & Follow-ups, which the daily template places below
+    ## New open items so the actionable items read first.
+    """
     path = ensure_daily_note(vault, cfg, today)
-    block = build_notes_block(synthesis)
-    if block.strip():
-        vault.patch_heading(path, "Notes", block, operation="append")
+    _patch_section(vault, path, "Notes", build_notes_block(synthesis))
+    _patch_section(vault, path, WEEK_HEADING, synthesis.get("accomplishments_md", "").strip())
+    _patch_section(vault, path, LEARNINGS_HEADING, format_learnings(synthesis.get("learnings", [])))
     return path

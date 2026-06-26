@@ -88,6 +88,18 @@ def test_recent_notes_includes_recently_modified_no_git(tmp_path: Path) -> None:
     assert any("00-Inbox/x.md" in n.path for n in notes)
 
 
+def test_recent_notes_excludes_today_note(tmp_path: Path) -> None:
+    """Today's own note must not be fed back, even though its mtime is recent."""
+    v = build_vault(tmp_path)
+    cfg = cfg_for(tmp_path)
+    today = date.today()
+    today_note = tmp_path / "zz-Sherry_Daily" / f"{today.isoformat()}.md"
+    today_note.write_text("## Notes\n- already written today\n")
+    os.utime(today_note, None)  # set mtime to now so the recency window would otherwise catch it
+    notes = recent_notes(v, cfg, today, repo_path=None)
+    assert not any(n.path.endswith(f"{today.isoformat()}.md") for n in notes)
+
+
 def test_recent_notes_nonexistent_repo_does_not_raise(tmp_path: Path) -> None:
     v = build_vault(tmp_path)
     result = recent_notes(v, cfg_for(tmp_path), date(2026, 6, 23), repo_path="/nonexistent/repo")

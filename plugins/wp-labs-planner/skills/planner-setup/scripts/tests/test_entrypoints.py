@@ -63,13 +63,13 @@ def test_run_daily_apply_failure_does_not_abort(tmp_path: Path, monkeypatch) -> 
     cfg.vault.git_commit = False
 
     def bad_apply_open(*_args, **_kwargs) -> None:
-        raise VaultIOError("no Open Items heading")
+        raise VaultIOError("no New open items heading")
 
     monkeypatch.setattr(daily_mod, "make_vault", lambda c: FilesystemVault(str(tmp_path)))
     monkeypatch.setattr(daily_mod, "_gather_daily", lambda vault, cfg, today: {"x": 1})
     monkeypatch.setattr(daily_mod, "synthesize_daily",
                         lambda cfg, tmpl, payload: {"calls": [], "accomplishments_md": "",
-                                                    "learnings_md": "", "new_tasks": []})
+                                                    "learnings": [], "new_tasks": []})
     import planner.render_tasks as rt
     monkeypatch.setattr(rt, "apply_open_items", bad_apply_open)
     # Must not raise; must return a path
@@ -89,10 +89,10 @@ def test_run_daily_end_to_end(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(daily_mod, "_gather_daily", lambda vault, cfg, today: {"x": 1})
     monkeypatch.setattr(daily_mod, "synthesize_daily",
                         lambda cfg, tmpl, payload: {"calls": [], "accomplishments_md": "- a",
-                                                    "learnings_md": "", "new_tasks": []})
+                                                    "learnings": [], "new_tasks": []})
     path = daily_mod.run_daily(cfg, date(2026, 6, 23))
     assert path.endswith("2026-06-23.md")
-    assert "### ✅ This Week So Far" in (tmp_path / "zz-Sherry_Daily" / "2026-06-23.md").read_text()
+    assert "## ✅ This Week So Far" in (tmp_path / "zz-Sherry_Daily" / "2026-06-23.md").read_text()
 
 
 def test_run_weekly_end_to_end(tmp_path: Path, monkeypatch) -> None:

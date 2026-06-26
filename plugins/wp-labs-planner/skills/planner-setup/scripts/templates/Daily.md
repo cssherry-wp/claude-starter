@@ -14,7 +14,13 @@ tags:
 ## Notes
 
 
-## Open Items
+## New open items
+
+
+## ✅ This Week So Far
+
+
+## 📓 Learnings & Follow-ups
 
 
 ## TODO

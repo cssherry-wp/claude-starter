@@ -118,11 +118,49 @@ def existing_task_index(vault: Any) -> dict[str, TaskRef]:
     return index
 
 
-_OPEN_HEADING = "Open Items"
-_STUB = "## Notes\n\n## Open Items\n\n## TODO\n"
+# Daily-note section headings, in the order they appear in the daily template.
+# Shared with render_daily so the planner patches the same headings the template ships.
+OPEN_HEADING = "New open items"
+WEEK_HEADING = "✅ This Week So Far"
+LEARNINGS_HEADING = "📓 Learnings & Follow-ups"
+DAILY_STUB = (
+    "## Notes\n\n"
+    f"## {OPEN_HEADING}\n\n"
+    f"## {WEEK_HEADING}\n\n"
+    f"## {LEARNINGS_HEADING}\n\n"
+    "## TODO\n"
+)
 
 
-def _ensure_heading(vault: Any, path: str, heading: str) -> None:
+def format_learnings(items: list[dict]) -> str:
+    """Render learnings & follow-ups as bullets, linking each to its source note.
+
+    Each item links to the note it came from (`[[source#header]]`, falling back to
+    `[[source]]` when no parent header is given); items without a source render as
+    plain text. Shared by the daily and weekly renderers so both link identically.
+
+    Args:
+        items: Learning entries shaped {text, source, header}; blank text is skipped.
+
+    Returns:
+        Newline-joined Markdown bullets, or "" when there are no usable items.
+    """
+    lines: list[str] = []
+    for item in items:
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        source = str(item.get("source", "")).strip()
+        header = str(item.get("header", "")).strip()
+        if source:
+            target = f"{source}#{header}" if header else source
+            lines.append(f"- {text} ([[{target}]])")
+        else:
+            lines.append(f"- {text}")
+    return "\n".join(lines)
+
+
+def ensure_heading(vault: Any, path: str, heading: str) -> None:
     """Ensure *path* exists and contains a `## {heading}` section to patch into.
 
     Creates the note from the stub when absent. When the note already exists but
@@ -135,7 +173,7 @@ def _ensure_heading(vault: Any, path: str, heading: str) -> None:
         heading: The level-2 heading (without the leading '## ') that must exist.
     """
     if not vault.exists(path):
-        vault.write(path, _STUB)
+        vault.write(path, DAILY_STUB)
         return
     body = vault.read(path)
     if re.search(rf"^## {re.escape(heading)}[ \t]*$", body, re.MULTILINE):
@@ -192,7 +230,7 @@ def _supersede_changed(vault: Any, ref: TaskRef, desired: str, key: str, today: 
 
 def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: date,
                      index: dict[str, TaskRef]) -> None:
-    """Append new open items under today's '## Open Items'; reconcile existing matches.
+    """Append new open items under today's '## New open items'; reconcile existing matches.
 
     Args:
         vault: Vault object with exists(), write(), read(), and patch_heading() methods.
@@ -211,8 +249,8 @@ def apply_open_items(vault: Any, daily_dir: str, items: list[OpenItem], today: d
         if ref is None or _supersede_changed(vault, ref, desired, key, today):
             new_lines.append(f"{desired} {_SHEET_TAG}")
     if new_lines:
-        _ensure_heading(vault, today_path, _OPEN_HEADING)
-        vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")
+        ensure_heading(vault, today_path, OPEN_HEADING)
+        vault.patch_heading(today_path, OPEN_HEADING, "\n".join(new_lines), operation="append")
 
 
 def _llm_task_line(text: str, priority: str) -> str:
@@ -231,7 +269,7 @@ def _llm_task_line(text: str, priority: str) -> str:
 def apply_llm_tasks(vault: Any, daily_dir: str, new_tasks: list[dict],
                     today: date, index: dict[str, TaskRef],
                     claimed_keys: set[str]) -> None:
-    """Append LLM-synthesized tasks to today's '## Open Items', deduped against vault+sheet.
+    """Append LLM-synthesized tasks to today's '## New open items', deduped against vault+sheet.
 
     Skips tasks already in *index* (vault) or *claimed_keys* (Sheet open items).
     Deduplicates identical tasks within a single batch. Does not mutate index or
@@ -258,8 +296,8 @@ def apply_llm_tasks(vault: Any, daily_dir: str, new_tasks: list[dict],
         seen.add(key)
         new_lines.append(_llm_task_line(text, task.get("priority", "")))
     if new_lines:
-        _ensure_heading(vault, today_path, _OPEN_HEADING)
-        vault.patch_heading(today_path, _OPEN_HEADING, "\n".join(new_lines), operation="append")
+        ensure_heading(vault, today_path, OPEN_HEADING)
+        vault.patch_heading(today_path, OPEN_HEADING, "\n".join(new_lines), operation="append")
 
 
 def _duration_suffix(item: CompletedItem) -> str:
@@ -296,6 +334,6 @@ def apply_completed_items(vault: Any, daily_dir: str, items: list[CompletedItem]
             continue
         day = item.completed_at.date()
         path = f"{daily_dir}/{day.isoformat()}.md"
-        _ensure_heading(vault, path, "TODO")
+        ensure_heading(vault, path, "TODO")
         line = f"- [x] {item.text} ✅ {day.isoformat()}{_duration_suffix(item)} {_SHEET_TAG}"
         vault.patch_heading(path, "TODO", line, operation="append")

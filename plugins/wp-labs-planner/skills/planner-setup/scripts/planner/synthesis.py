@@ -84,7 +84,7 @@ def synthesize_daily(cfg: LlmCfg, prompt_template: str, payload: dict[str, Any])
         payload: Dict of daily data (events, accomplishments, todos, notes).
 
     Returns:
-        Dict with "calls", "accomplishments_md", "learnings_md", "new_tasks".
+        Dict with "calls", "accomplishments_md", "learnings", "new_tasks".
     """
     return _synthesize(cfg, prompt_template, payload)
 

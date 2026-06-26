@@ -21,7 +21,7 @@ def test_extract_json_missing_raises() -> None:
 
 def test_synthesize_daily_parses(monkeypatch: pytest.MonkeyPatch) -> None:
     canned = json.dumps({"calls": [], "accomplishments_md": "- did x",
-                         "learnings_md": "", "new_tasks": [{"text": "t", "priority": "high"}]})
+                         "learnings": [], "new_tasks": [{"text": "t", "priority": "high"}]})
     monkeypatch.setattr(syn, "run_backend", lambda cfg, prompt: canned)
     cfg = LlmCfg("claude", "claude", ["-p"], "", "")
     out = syn.synthesize_daily(cfg, "PROMPT {payload}", {"x": 1})
@@ -30,7 +30,7 @@ def test_synthesize_daily_parses(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_synthesize_daily_substitutes_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     received: list[str] = []
-    canned = json.dumps({"calls": [], "accomplishments_md": "", "learnings_md": "", "new_tasks": []})
+    canned = json.dumps({"calls": [], "accomplishments_md": "", "learnings": [], "new_tasks": []})
 
     def fake(cfg, prompt):
         received.append(prompt)

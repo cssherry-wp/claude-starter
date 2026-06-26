@@ -124,7 +124,7 @@ def test_apply_open_items_appends_new_under_open_items() -> None:
     vault = RecordingVault()
     items = [OpenItem(text="New thing", status="", carry_over_weeks=0, started_at=None)]
     apply_open_items(vault, "daily", items, date(2026, 6, 24), index={})
-    assert vault.patches == [("daily/2026-06-24.md", "Open Items", "- [ ] New thing #weekly-planner")]
+    assert vault.patches == [("daily/2026-06-24.md", "New open items", "- [ ] New thing #weekly-planner")]
     assert vault.exists("daily/2026-06-24.md")  # stub created
 
 
@@ -146,8 +146,8 @@ def test_apply_open_items_supersedes_changed_existing() -> None:
     apply_open_items(vault, "daily", items, date(2026, 6, 24), index=index)
     # old copy preserved as a cancelled tombstone (not deleted, not edited in place)
     assert "- [-] Give feedback 🔽 #status/waiting ❌ 2026-06-24" in vault.files["daily/2026-06-20.md"]
-    # updated copy resurfaced under today's Open Items, stamped with provenance tag
-    assert vault.patches == [("daily/2026-06-24.md", "Open Items",
+    # updated copy resurfaced under today's New open items, stamped with provenance tag
+    assert vault.patches == [("daily/2026-06-24.md", "New open items",
                               "- [ ] Give feedback ⏫ 📅 2026-06-28 #status/on-notice (carried 1w) "
                               "#weekly-planner")]
 
@@ -261,7 +261,7 @@ def test_apply_llm_tasks_renders_survivor_with_priority_emoji() -> None:
     vault = RecordingVault()
     tasks = [{"text": "Deploy service", "priority": "high"}]
     apply_llm_tasks(vault, "daily", tasks, date(2026, 6, 24), index={}, claimed_keys=set())
-    assert vault.patches == [("daily/2026-06-24.md", "Open Items", "- [ ] Deploy service ⏫")]
+    assert vault.patches == [("daily/2026-06-24.md", "New open items", "- [ ] Deploy service ⏫")]
 
 
 def test_apply_llm_tasks_no_patch_when_all_duplicates() -> None:
@@ -282,20 +282,20 @@ def test_apply_llm_tasks_no_patch_for_empty_text() -> None:
 # --- self-healing when the daily note lacks the target heading (real-backend repro) ---
 
 def test_apply_llm_tasks_adds_open_items_heading_when_template_omits_it(tmp_path: Path) -> None:
-    """A daily note from a template without '## Open Items' must not break the patch."""
+    """A daily note from a template without '## New open items' must not break the patch."""
     (tmp_path / "daily").mkdir()
     note = tmp_path / "daily" / "2026-06-24.md"
-    note.write_text("## Notes\n\n## TODO\n")  # daily-notes template lacks Open Items
+    note.write_text("## Notes\n\n## TODO\n")  # daily-notes template lacks New open items
     vault = FilesystemVault(str(tmp_path))
     tasks = [{"text": "Deploy service", "priority": "high"}]
     apply_llm_tasks(vault, "daily", tasks, date(2026, 6, 24), index={}, claimed_keys=set())
     body = note.read_text()
-    assert "## Open Items" in body
+    assert "## New open items" in body
     assert "- [ ] Deploy service ⏫" in body
 
 
 def test_apply_open_items_adds_open_items_heading_when_template_omits_it(tmp_path: Path) -> None:
-    """apply_open_items self-heals a missing '## Open Items' heading on an existing note."""
+    """apply_open_items self-heals a missing '## New open items' heading on an existing note."""
     (tmp_path / "daily").mkdir()
     note = tmp_path / "daily" / "2026-06-24.md"
     note.write_text("## Notes\n\n## TODO\n")
@@ -303,5 +303,5 @@ def test_apply_open_items_adds_open_items_heading_when_template_omits_it(tmp_pat
     items = [OpenItem(text="New thing", status="", carry_over_weeks=0, started_at=None)]
     apply_open_items(vault, "daily", items, date(2026, 6, 24), index={})
     body = note.read_text()
-    assert "## Open Items" in body
+    assert "## New open items" in body
     assert "- [ ] New thing" in body
