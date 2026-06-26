@@ -84,16 +84,31 @@ find "$FORK_DIR" -name '.DS_Store' -delete
 
 # --- Apply the team docs-path convention to the skill text --------------------
 while IFS= read -r f; do
-  sed -i.bak -e 's#docs/superpowers/specs#docs/01-specs#g' \
-             -e 's#docs/superpowers/plans#docs/02-plans#g' "$f"
+  sed -i.bak -e 's#docs/superpowers/specs#.superpowers/01-specs#g' \
+             -e 's#docs/superpowers/plans#.superpowers/02-plans#g' "$f"
   rm -f "$f.bak"
 done < <(grep -rl 'docs/superpowers/\(specs\|plans\)' "$FORK_DIR/skills" 2>/dev/null || true)
 
 # Best-effort HHmm filename patterns (skip silently if upstream changed the wording)
-sed -i.bak 's#docs/01-specs/YYYY-MM-DD-<topic>-design\.md#docs/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md#g' \
+sed -i.bak 's#docs/superpowers/specs/YYYY-MM-DD-<topic>-design\.md#.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md#g' \
   "$FORK_DIR/skills/brainstorming/SKILL.md" 2>/dev/null && rm -f "$FORK_DIR/skills/brainstorming/SKILL.md.bak" || true
-sed -i.bak 's#docs/02-plans/YYYY-MM-DD-<feature-name>\.md#docs/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md#g' \
+sed -i.bak 's#docs/superpowers/plans/YYYY-MM-DD-<feature-name>\.md#.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md#g' \
   "$FORK_DIR/skills/writing-plans/SKILL.md" 2>/dev/null && rm -f "$FORK_DIR/skills/writing-plans/SKILL.md.bak" || true
+
+# --- Re-apply team workflow overlays (survive the upstream rebuild) ----------
+OVERLAY_DIR="$FORK_DIR/team-overlays"
+if [ -d "$OVERLAY_DIR" ]; then
+  for frag in "$OVERLAY_DIR"/*.md; do
+    [ -e "$frag" ] || continue
+    skill_name=$(basename "$frag" .md)
+    target="$FORK_DIR/skills/$skill_name/SKILL.md"
+    [ -f "$target" ] || continue
+    if ! grep -q 'wp-labs team overlay: BEGIN' "$target"; then
+      printf '\n' >>"$target"
+      cat "$frag" >>"$target"
+    fi
+  done
+fi
 
 # --- Rewrite our plugin manifest and FORK.md ---------------------------------
 new_version="${upstream_version}-team.1"
@@ -130,11 +145,14 @@ plugin essentials and customized with the team docs-path convention.
 ## What diverges from upstream
 
 1. **Docs-path convention** applied to the skill text:
-   - \`docs/superpowers/specs/...\` → \`docs/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md\`
-   - \`docs/superpowers/plans/...\` → \`docs/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md\`
+   - \`docs/superpowers/specs/...\` → \`.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md\`
+   - \`docs/superpowers/plans/...\` → \`.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md\`
 2. **Slimmed to plugin essentials** — kept \`.claude-plugin/\`, \`skills/\`, \`hooks/\`, \`LICENSE\`,
    \`README.md\`; removed upstream dev/CI/test files, the upstream project's own \`docs/\`, and
    other-harness directories.
+3. **Team workflow overlays** — spec→issue (brainstorming), plan→comment (writing-plans), and
+   feature-docs (finishing-a-development-branch) are appended from \`team-overlays/\` after each
+   rebuild.
 
 ## Why a fork (vs the overlay)
 
