@@ -37,23 +37,30 @@ why a team behavior survives an upstream rebuild instead of being wiped.
 When you take a feature through brainstorming and planning, the skills do this for
 you:
 
-1. **Spec.** The approved design is written to
-   `.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md` and committed.
+1. **Spec.** The approved design is written to the top-level repo's
+   `.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md` (a working copy — not
+   committed).
 2. **Issue.** If the spec came from an existing GitHub issue, the spec is appended
    to it as a comment. Otherwise you're asked `Create a GitHub tracking issue for
    this spec? (Y/n)` and, on yes, `gh issue create` opens one. The resulting URL is
    recorded in the spec as a `Tracking issue:` line.
-3. **Plan.** The implementation plan is written to
+3. **Plan.** The implementation plan is written to the top-level repo's
    `.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md`, then posted as a
    comment on that tracking issue (`gh issue comment`).
 4. **Feature docs.** When you finish the branch, you write a task-oriented guide
    (like this one) into `docs/` describing how to use and adapt the feature.
 
 All `gh` steps degrade gracefully — if the GitHub CLI is missing or
-unauthenticated, the step is skipped with a note and never blocks your work. The
-entire `.superpowers/` tree is **git-ignored** — specs and plans are local working
-copies, and the **GitHub tracking issue is their durable record**. Only the feature
-guide in `docs/` (step 4) is committed.
+unauthenticated, the step is skipped with a note and never blocks your work.
+
+The entire `.superpowers/` tree is **git-ignored** by a committed
+`.superpowers/.gitignore` (`*` plus `!.gitignore`, so the guard itself travels with
+the repo on every branch and fresh clone). Specs and plans are local working copies;
+the **GitHub tracking issue is their durable record**. Always use the **top-level
+repository's** `.superpowers/` — when you're in a git worktree, resolve it to the
+main working tree (`git -C "$(git rev-parse --git-common-dir)/.." rev-parse
+--show-toplevel`) so all worktrees share one location and the docs outlive any single
+worktree. Only the feature guide in `docs/` (step 4) is committed.
 
 ## When you might edit it
 

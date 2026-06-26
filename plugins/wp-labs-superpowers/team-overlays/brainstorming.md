@@ -16,9 +16,14 @@ writing-plans, link the spec to GitHub issue tracking:
 4. **Record the issue** in the spec file as a `Tracking issue: <url>` line. writing-plans reads
    this line to post the plan as a comment.
 
-**`.superpowers/` is git-ignored working space — do NOT commit the spec file.** The GitHub issue
-created/updated above is the spec's durable record. This overrides any "commit the design document
-to git" step earlier in this skill.
+Write the spec to the **top-level** repository's `.superpowers/01-specs/` — the main working tree,
+not a worktree (resolve via `git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel`)
+— so it persists across worktrees.
+
+**`.superpowers/` is git-ignored working space — do NOT commit the spec file.** A committed
+`.superpowers/.gitignore` keeps the tree out of git; the GitHub issue created/updated above is the
+spec's durable record. This overrides any "commit the design document to git" step earlier in this
+skill.
 
 If `gh` is missing or unauthenticated, report it and continue — never block the workflow on it.
 

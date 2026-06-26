@@ -47,6 +47,5 @@ __pycache__/
 docker-compose.override.yml
 *.local.env
 
-# Superpowers working space — specs/plans/scratch live here as local working
-# copies; their durable record is the GitHub tracking issue, not git.
-.superpowers/
+# Note: the .superpowers/ working space is git-ignored by its own committed
+# .superpowers/.gitignore (works on every branch and fresh clone).

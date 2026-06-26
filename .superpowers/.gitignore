@@ -1,0 +1,6 @@
+# .superpowers/ is local working space — specs, plans, and scratch live here as
+# working copies only. Their durable record is the GitHub tracking issue, not git.
+# Ignore everything in this folder EXCEPT this .gitignore (so the guard travels
+# with the repo, on every branch and fresh clone).
+*
+!.gitignore
