@@ -26,6 +26,13 @@
       "description": "Opt-in vendored fork of superpowers with the team docs-path convention baked in. Enable instead of stock superpowers, never both.",
       "category": "development",
       "version": "6.0.3-team.1"
+    },
+    {
+      "name": "wp-labs-planner",
+      "source": "./plugins/wp-labs-planner",
+      "description": "Daily & weekly Obsidian planner: aggregates Gmail (+planner alias), a Google Doc, OneNote, and vault state into Obsidian notes via the Local REST API MCP. Includes the planner-setup skill.",
+      "category": "productivity",
+      "version": "0.0.1"
     }
   ]
 }

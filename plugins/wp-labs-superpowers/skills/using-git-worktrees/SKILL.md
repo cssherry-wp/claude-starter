@@ -139,6 +139,18 @@ Tests passing (<N> tests, 0 failures)
 Ready to implement <feature-name>
 ```
 
+## Step 4: Open for Review When Work Is Done
+
+**When the work in the worktree is finished, open the worktree repo folder in VSCode so it can be reviewed.**
+
+```bash
+code "$(git rev-parse --show-toplevel)"
+```
+
+Do this once, after the task's files are all generated and ready — not on every file edit. This surfaces the isolated changes for human review before merge.
+
+If the `code` command is unavailable, report the worktree path and tell the user to open it manually.
+
 ## Quick Reference
 
 | Situation | Action |
@@ -155,6 +167,7 @@ Ready to implement <feature-name>
 | Permission error on create | Sandbox fallback, work in place |
 | Tests fail during baseline | Report failures + ask |
 | No package.json/Cargo.toml | Skip dependency install |
+| Worktree work is done | Open repo folder in VSCode for review (Step 4) |
 
 ## Common Mistakes
 
@@ -200,3 +213,4 @@ Ready to implement <feature-name>
 - Verify directory is ignored for project-local
 - Auto-detect and run project setup
 - Verify clean test baseline
+- Open the worktree repo folder in VSCode for review when the work is done

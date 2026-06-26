@@ -1,0 +1,41 @@
+google:
+  credentials_path: ~/.config/planner/credentials.json
+  token_path: ~/.config/planner/token.json
+  # Email address of the Google account the planner calendar belongs to
+  planner_address: sherry+planner@example.com
+  # Google Sheet that holds your todos (Overview tab). Full URL or bare ID.
+  gdoc_id: 1AbCdEfGhIjKlMnOpQrStUvWxYz
+  # Worksheet/tab name to read, and how many prior weeks (rows) to scan.
+  overview_tab: Overview
+  weeks_back: 4
+onenote:
+  files:
+    - ~/OneNote/Work.one
+  # Shell command to convert OneNote files to Markdown.
+  # Use {input} and {output} as placeholders for the source and destination paths.
+  converter_command: "one2md {input} {output}"
+vault:
+  path: ~/vault
+  vault_name: szhou
+  templates_dir: zz-Templates
+  projects_dir: 00-InProgress
+  daily_output_dir: zz-Sherry_Daily
+  weekly_output_dir: zz-Sherry_Weekly
+  todo_files: []
+  git_commit: true
+obsidian:
+  mode: mcp
+  host: 127.0.0.1
+  port: 27124
+  # Path to the self-signed TLS certificate used by the Obsidian Local REST API plugin.
+  # Required when mode is 'mcp'.
+  cert_path: ~/.config/planner/obsidian.crt
+  api_key_env: OBSIDIAN_API_KEY
+llm:
+  # LLM backend to use for synthesis. Supported values: 'claude' (default) or 'local'.
+  # 'local' requires command/endpoint to be set below.
+  backend: claude
+  command: claude
+  flags: ["-p"]
+  model: ""
+  endpoint: ""

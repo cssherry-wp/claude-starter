@@ -5,6 +5,7 @@ Icon?
 
 # Editor / local Claude Code config
 .claude/settings.local.json
+.claude/worktrees/
 
 # Node / JS / TS
 node_modules/

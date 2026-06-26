@@ -1,0 +1,30 @@
+google:
+  credentials_path: ~/.config/planner/credentials.json
+  token_path: ~/.config/planner/token.json
+  planner_address: sherry+planner@example.com
+  gdoc_id: 1AbCdEfGhIjKlMnOpQrStUvWxYz
+onenote:
+  files:
+    - ~/OneNote/Work.one
+  converter_command: "one2md {input} {output}"
+vault:
+  path: ~/vault
+  vault_name: szhou
+  templates_dir: zz-Templates
+  projects_dir: 00-InProgress
+  daily_output_dir: zz-Sherry_Daily
+  weekly_output_dir: zz-Sherry_Weekly
+  todo_files: []
+  git_commit: true
+obsidian:
+  mode: mcp
+  host: 127.0.0.1
+  port: 27124
+  cert_path: ~/.config/planner/obsidian.crt
+  api_key_env: OBSIDIAN_API_KEY
+llm:
+  backend: claude
+  command: claude
+  flags: ["-p"]
+  model: ""
+  endpoint: ""
