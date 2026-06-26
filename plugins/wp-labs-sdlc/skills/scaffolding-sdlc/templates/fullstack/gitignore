@@ -12,17 +12,16 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
-# Packaging metadata
+# Packaging and build output
 *.egg-info/
+build/
+dist/
 
 # --- Frontend (Node) ---
 
 # Installed dependencies
 node_modules/
 frontend/node_modules/.vite/
-
-# Build output
-frontend/dist/
 
 # --- Test artifacts ---
 

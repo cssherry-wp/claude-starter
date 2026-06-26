@@ -10,8 +10,10 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
-# Packaging metadata
+# Packaging and build output
 *.egg-info/
+build/
+dist/
 
 # Environment variables and secrets — never commit real values,
 # but keep the checked-in .env.example template
