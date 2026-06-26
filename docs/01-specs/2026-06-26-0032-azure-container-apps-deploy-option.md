@@ -14,8 +14,7 @@ needs deployment slots.
 
 We want a second, opt-in hosting model — **Azure Container Apps (ACA)** — that reuses the same
 container image and backing services but adds serverless economics (scale-to-zero), fine-grained
-HTTP autoscaling, and native revision/traffic-splitting. See the background analysis in
-`Notes/.../Azure Deployment Options — App Service, Container Apps, Oryx.md`.
+HTTP autoscaling, and native revision/traffic-splitting.
 
 The reference app `django_app-main` uses an Oryx/`azd` code-based model; we explicitly **do not**
 adopt that (no container parity, weak local==prod, native-deps pain). Container/ACR stays the
@@ -120,7 +119,30 @@ migration Job runs automatically on deploy, and how to invoke it manually
 - Reuse: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC).
 - New repo **variables**: `AZURE_RESOURCE_GROUP`, `AZURE_ACR_NAME`, `AZURE_CONTAINERAPP_NAME`,
   `AZURE_CONTAINERAPP_JOB`.
-- No new labels.
+- New label: **`automation-deploy-test`** (added to `scripts/ensure-labels.sh`) — opts a PR into the
+  ephemeral preview environment (§8).
+
+### 8. Ephemeral preview environment (`automation-deploy-test` label) — ACA only
+
+When a PR carries the **`automation-deploy-test`** label, deploy a throwaway ACA instance for manual
+testing, link it in the PR, and tear it down when the PR closes. Scale-to-zero makes this nearly
+free: an idle preview costs ~$0 while the PR sits open.
+
+New workflow **`cd-preview.yml`** (copied only on the ACA path), gated on
+`vars.AZURE_CONTAINERAPP_NAME != ''` and **same-repo PRs only** (forks get no secrets — mirrors the
+`code-review.yml` gate). Triggers on `pull_request` `[labeled, synchronize, reopened]` and `[closed]`.
+
+- **On labeled / synchronize (label present):**
+  1. OIDC login; `az acr build` a PR-tagged image (`:pr-<number>`).
+  2. Deploy/update a uniquely-named container app **`<app>-pr-<number>`** with **`minReplicas=0`**
+     (default scaled-to-zero) in the ACA environment.
+  3. Run the migration Job against the preview (see DB note in Risks).
+  4. Edit the PR **description** to insert/update a marked block with the preview URL
+     (idempotent — a `<!-- preview-env -->` marker so re-runs replace, not append).
+- **On PR `closed` (merged or not):** `az containerapp delete` the `<app>-pr-<number>` app and any
+  preview-only resources, and strip the marker block from the PR description.
+
+If the label is removed mid-PR, treat it like `closed` for that app (delete + unlink).
 
 ## Testing & validation
 
@@ -139,3 +161,10 @@ migration Job runs automatically on deploy, and how to invoke it manually
   disk). Noted in HOSTING.md.
 - `az bicep` must be available locally for `make lint-infra` (`az bicep install`); ubuntu CI runners
   have `az` preinstalled.
+- **Preview-env database strategy (needs-decision):** §8's preview app needs a database. Options:
+  a per-PR ephemeral Postgres (cleanest isolation, more provisioning/teardown), a per-PR schema on a
+  shared dev server, or simply pointing at a shared dev DB (simplest, but PRs can collide / mutate
+  shared data). Resolve during planning; default lean is a per-PR ephemeral DB dropped on close.
+- **Preview-env leak risk:** if the `closed` teardown run fails, a `<app>-pr-<number>` app lingers.
+  Scale-to-zero keeps idle cost ~$0, but a periodic sweep (or a max-age check) may be warranted —
+  note for planning.
