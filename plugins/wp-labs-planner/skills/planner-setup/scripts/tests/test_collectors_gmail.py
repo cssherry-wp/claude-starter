@@ -104,6 +104,16 @@ def test_parse_tomorrow_calendar_captures_video_link() -> None:
     assert events[0].video_url == "https://wp.zoom.us/j/999"
 
 
+def test_parse_tomorrow_calendar_strips_autolink_url_from_title() -> None:
+    """An autolink URL glued to the title cell must not leak into the event title."""
+    body = ("Tomorrow's Calendar\nTime\nEvent\nAttendees\nRelevant bullets\n"
+            "1:00–2:00 PM ET\nJuno/Sherry 1:1<https://teams.microsoft.com/meet/2685?p=AK7>⁠\n"
+            "Sherry Zhou\nAll-day events\n")
+    events = parse_tomorrow_calendar(body, date(2026, 6, 24), ZoneInfo("America/Los_Angeles"))
+    assert events[0].title == "Juno/Sherry 1:1"  # URL, angle brackets, word-joiner stripped
+    assert events[0].video_url == "https://teams.microsoft.com/meet/2685?p=AK7"
+
+
 def test_to_local_hhmm_converts_et_to_local() -> None:
     la = ZoneInfo("America/Los_Angeles")
     # 1:00 PM EDT on 2026-06-24 == 10:00 PDT

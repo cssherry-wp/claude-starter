@@ -28,9 +28,13 @@ _PLANNER_TZ = "America/New_York"
 # Matches a cell like "1:00–2:00 PM ET": captures the start time and its meridiem.
 _TIME_RE = re.compile(r"(\d{1,2}):(\d{2})\s*(?:[–\-]\s*\d{1,2}:\d{2})?\s*(AM|PM)", re.IGNORECASE)
 # Matches a Zoom or Microsoft Teams join URL anywhere in an event's cells.
-_VIDEO_LINK_RE = re.compile(
-    r"https?://[^\s<>\"]*(?:zoom\.us|teams\.microsoft\.com|teams\.live\.com)[^\s<>\"]*",
-    re.IGNORECASE)
+_VIDEO_URL = r"https?://[^\s<>\"]*(?:zoom\.us|teams\.microsoft\.com|teams\.live\.com)[^\s<>\"]*"
+_VIDEO_LINK_RE = re.compile(_VIDEO_URL, re.IGNORECASE)
+# Same URL, plus any surrounding autolink angle brackets and whitespace, for stripping
+# a join link that the planner email glues onto the title cell (e.g. "Standup<https://…>").
+_TITLE_VIDEO_RE = re.compile(rf"\s*<?\s*{_VIDEO_URL}\s*>?", re.IGNORECASE)
+# Zero-width / word-joiner characters email HTML sometimes wraps around links.
+_ZERO_WIDTH_RE = re.compile("[\u200b-\u200d\u2060\ufeff]")
 
 
 @dataclass
@@ -58,6 +62,25 @@ def extract_video_link(text: str) -> str:
     """
     match = _VIDEO_LINK_RE.search(text)
     return match.group(0).rstrip(".,;)") if match else ""
+
+
+def _clean_title(title: str) -> str:
+    """Strip an autolinked join URL (and zero-width chars) glued onto a title cell.
+
+    The planner email sometimes appends the meeting link to the title as an autolink
+    (e.g. 'Standup<https://teams.microsoft.com/…>'); the URL belongs in the join-link
+    bullet, not the event heading, where the raw '<url>' would render as literal text.
+
+    Args:
+        title: The raw title cell text from the planner email.
+
+    Returns:
+        The title with any join URL, surrounding angle brackets, and zero-width
+        characters removed.
+    """
+    cleaned = _TITLE_VIDEO_RE.sub("", title)
+    cleaned = _ZERO_WIDTH_RE.sub("", cleaned)
+    return cleaned.strip()
 
 
 def get_credentials(cfg: GoogleCfg, scopes: list[str]) -> Credentials:
@@ -205,7 +228,7 @@ def parse_tomorrow_calendar(body: str, event_date: date,
             continue
         raw_attendees = re.split(r"[;,]", cells[1]) if len(cells) > 1 else []
         events.append(CalendarEvent(
-            title=cells[0],
+            title=_clean_title(cells[0]),
             start=lines[idx],
             attendees=[a.strip() for a in raw_attendees if a.strip()],
             raw=lines[idx],
