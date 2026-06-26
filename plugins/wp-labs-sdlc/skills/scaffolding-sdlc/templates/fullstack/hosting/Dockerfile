@@ -31,4 +31,7 @@ RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT}"]
+# RUN_MIGRATIONS_ON_START (default true) lets the entrypoint migrate — safe on a
+# single instance (App Service). On Azure Container Apps it is set to "false" so a
+# dedicated migration Job owns migrations (multiple replicas would otherwise race).
+CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS_ON_START:-true}\" = \"true\" ]; then python manage.py migrate --noinput; fi && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT}"]

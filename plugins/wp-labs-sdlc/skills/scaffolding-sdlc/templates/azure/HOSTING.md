@@ -2,8 +2,19 @@
 
 How to run the app in a container locally and deploy it to Azure. The
 scaffolding-sdlc skill copies the stack's `Dockerfile`, `.dockerignore`, and
-`docker-compose.yml` to the repo root, the Bicep under `infra/`, and
-`azure-deploy.yml` into `.github/workflows/`.
+`docker-compose.yml` to the repo root, the Bicep under `infra/`, and a single
+`cd.yml` into `.github/workflows/`.
+
+You choose **one** hosting model at scaffold time, and the matching `infra/main.bicep`
++ `cd.yml` are installed:
+
+- **App Service (container)** — turnkey web conveniences (Easy Auth, managed certs,
+  deployment slots); always-on. Recommended for a single public web app. *(below)*
+- **Azure Container Apps (ACA)** — scale-to-zero economics, automatic HTTP autoscaling,
+  native revisions/traffic-splitting; cold starts when scaled to zero. *(further below)*
+
+Both share the `Dockerfile`/`docker-compose.yml`, the ACR + Postgres Bicep, and the
+Azure OIDC secrets.
 
 ## Run locally with Docker
 
@@ -43,7 +54,7 @@ Edit `infra/parameters/<env>.parameters.json` (`appName`, `imageName`,
 `appServiceSku`) per environment. `pgAdminPassword` is `@secure()` — pass it at
 deploy time, never commit it.
 
-### 2. Wire up CI deploy (`azure-deploy.yml`)
+### 2. Wire up CD (`cd.yml`)
 
 The workflow builds the image in ACR and points the Web App at it on every push
 to `main`. Configure once:
@@ -57,8 +68,78 @@ to `main`. Configure once:
 The deploy job is gated on `AZURE_WEBAPP_NAME` — until you set it, the workflow
 no-ops, so it's safe to merge before Azure is set up.
 
+## Deploy to Azure Container Apps (ACA + ACR + Postgres)
+
+The ACA variant runs the same container image on a serverless platform with
+scale-to-zero and a dedicated migration Job. Migrations do **not** run in the
+container entrypoint here (`RUN_MIGRATIONS_ON_START=false`) — a separate Job owns
+them, because multiple replicas would otherwise race.
+
+### 1. Provision infrastructure (Bicep)
+
+```bash
+az group create -n <rg> -l eastus
+az deployment group create \
+  -g <rg> \
+  -f infra/main.aca.bicep \
+  -p infra/parameters/aca.prod.parameters.json \
+  -p pgAdminPassword='<choose-a-strong-secret>'
+```
+
+This creates an ACR, a PostgreSQL Flexible Server, a Container Apps managed
+environment (+ Log Analytics), the Container App, and a manual-trigger **migration
+Job**. The app and Job each use a system-assigned identity with **AcrPull**.
+
+Edit `infra/parameters/aca.<env>.parameters.json` per environment:
+
+- `minReplicas` — **defaults to `1` (always-warm)**. Set to `0` for scale-to-zero
+  (idle ≈ $0, at the cost of a cold start on the first request after idle).
+- `maxReplicas`, `cpu`, `memory` — scale/size per environment.
+
+### 2. Wire up CD (`cd.yml`)
+
+On every push to `main` the workflow: builds the image in ACR → points the
+migration Job at the new image, **runs it, and waits** (a failed migration stops
+the deploy — traffic is never routed to a new image against an un-migrated schema)
+→ updates the Container App to the new revision.
+
+- Repo **secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
+- Repo **variables**: `AZURE_RESOURCE_GROUP`, `AZURE_ACR_NAME`,
+  `AZURE_CONTAINERAPP_NAME`, `AZURE_CONTAINERAPP_JOB`.
+
+Gated on `AZURE_CONTAINERAPP_NAME` — no-op until set.
+
+### 3. Run migrations / one-off commands manually
+
+The migration Job is provisioned once and invocable any time. The default command
+is `migrate --noinput`; override it to run any management command:
+
+```bash
+# default migration
+az containerapp job start -g <rg> -n <job-name>
+
+# one-off command (createsuperuser, loaddata, a contract migration, etc.)
+az containerapp job start -g <rg> -n <job-name> \
+  --command "/bin/sh" --args "-c","python manage.py createsuperuser --noinput"
+```
+
+Use this for: a migration that failed mid-deploy, long data backfills kept out of
+the deploy path, expand/contract (drop-column) migrations run after the new code is
+healthy, rollbacks, and DB-restore catch-up.
+
+### 4. Ephemeral preview environments (`automation-deploy-test` label)
+
+Add the **`automation-deploy-test`** label to a PR and `cd-preview.yml` deploys a
+throwaway `…-pr-<n>` Container App (min 0 / max 1 replica → ~$0 idle), links it in
+the PR description, and tears it down — striking the link through — when the PR
+closes or the label is removed. Preview apps migrate themselves on cold start
+(single replica, so no race). Set a `PREVIEW_DATABASE_URL` secret to point previews
+at a database (per-PR database strategy is still being finalized).
+
 ## Notes
 
 - For production, restrict the Postgres firewall (the starter allows Azure
   services broadly) and consider Private Endpoints / VNet integration.
-- Scale the App Service Plan and Postgres SKUs via the Bicep parameters.
+- App Service: scale the Plan and Postgres SKUs via the Bicep parameters.
+- ACA: tune `minReplicas`/`maxReplicas`/`cpu`/`memory`; `minReplicas=0` trades a
+  cold start for near-zero idle cost.

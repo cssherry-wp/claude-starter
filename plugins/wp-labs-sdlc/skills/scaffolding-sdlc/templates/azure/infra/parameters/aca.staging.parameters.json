@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": { "value": "myapp" },
+    "environment": { "value": "staging" },
+    "imageName": { "value": "myapp:staging" },
+    "minReplicas": { "value": 1 },
+    "maxReplicas": { "value": 3 },
+    "cpu": { "value": "0.5" },
+    "memory": { "value": "1.0Gi" }
+  }
+}

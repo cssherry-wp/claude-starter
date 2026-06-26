@@ -125,7 +125,7 @@ migration Job runs automatically on deploy, and how to invoke it manually
 ### 8. Ephemeral preview environment (`automation-deploy-test` label) — ACA only
 
 When a PR carries the **`automation-deploy-test`** label, deploy a throwaway ACA instance for manual
-testing, link it in the PR, and tear it down when the PR closes. Scale-to-zero makes this nearly
+testing, link it in the PR, and tear it down when the PR closes (updating the description of the PR with link strikethrough). Scale-to-zero makes this nearly
 free: an idle preview costs ~$0 while the PR sits open.
 
 New workflow **`cd-preview.yml`** (copied only on the ACA path), gated on
@@ -140,7 +140,7 @@ New workflow **`cd-preview.yml`** (copied only on the ACA path), gated on
   4. Edit the PR **description** to insert/update a marked block with the preview URL
      (idempotent — a `<!-- preview-env -->` marker so re-runs replace, not append).
 - **On PR `closed` (merged or not):** `az containerapp delete` the `<app>-pr-<number>` app and any
-  preview-only resources, and strip the marker block from the PR description.
+  preview-only resources, and Add strikethrough to all lines between the marker block.
 
 If the label is removed mid-PR, treat it like `closed` for that app (delete + unlink).
 

@@ -1,0 +1,22 @@
+name: CI (infra)
+
+# Only runs when Bicep under infra/ changes — no skipped-step noise on unrelated PRs.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ['infra/**']
+  push:
+    branches: [main]
+    paths: ['infra/**']
+
+jobs:
+  bicep-lint:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v5
+      # ubuntu-latest ships the Azure CLI; ensure the bundled Bicep CLI is present.
+      - name: Ensure Bicep CLI
+        run: az bicep install
+      - name: Lint Bicep (local == CI)
+        run: make lint-infra
