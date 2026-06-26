@@ -50,7 +50,8 @@ directory; copy from there.
 
    Then produce a **scaffold inventory** — go through EVERY component this skill
    can add and mark each present / partial / missing:
-   - dev-loop: `Makefile`, tool configs, `.gitignore`, manifest
+   - dev-loop: `Makefile`, tool configs, `.gitignore`, `.env.example` (Python/
+     Fullstack), manifest
    - starter app (greenfield only)
    - `git-hooks/pre-commit`
    - each workflow: `ci.yml`, `security.yml`, `code-review.yml` (two jobs — a
@@ -85,7 +86,11 @@ directory; copy from there.
    (`templates/<stack>/`): the `Makefile`, tool configs, and `gitignore` →
    `.gitignore`. Merge `package-scripts.json` / `pyproject-tooling.toml` into an
    existing manifest (do not overwrite the whole file). Create README and the
-   manifest only if missing.
+   manifest only if missing. **Env example:** when the stack ships one (Python
+   and Fullstack do — the TS CLI stack has no env vars), copy
+   `templates/<stack>/.env.example` → `.env.example`; the `.gitignore` keeps it
+   tracked via the `!.env.example` negation. Never copy it to `.env`, and skip if
+   the repo already has its own `.env.example`.
 
    **Starter app (greenfield only).** If the repo has no source yet, also copy
    the stack's runnable skeleton from `templates/<stack>/scaffold/` (TS: a typed
