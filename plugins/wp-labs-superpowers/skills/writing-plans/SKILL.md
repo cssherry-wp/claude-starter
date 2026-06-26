@@ -15,7 +15,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
 
-**Save plans to:** `docs/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md`
+**Save plans to:** `.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md`
 - (User preferences for plan location override this default)
 
 ## Scope Check
@@ -157,7 +157,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 After saving the plan, offer execution choice:
 
-**"Plan complete and saved to `docs/02-plans/<filename>.md`. Two execution options:**
+**"Plan complete and saved to `.superpowers/02-plans/<filename>.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 
@@ -172,3 +172,18 @@ After saving the plan, offer execution choice:
 **If Inline Execution chosen:**
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
+
+<!-- wp-labs team overlay: BEGIN -->
+
+## Team workflow: post the plan to the tracking issue
+
+After the plan file is saved and self-reviewed, post it to the spec's tracking issue:
+
+1. Read the `Tracking issue:` line from the spec this plan is based on.
+2. If a tracking issue is present, post the plan as a comment —
+   `gh issue comment <number> --body-file <plan-path>`.
+3. If the spec has no tracking issue, skip with a one-line note.
+
+If `gh` is missing or unauthenticated, report it and continue.
+
+<!-- wp-labs team overlay: END -->

@@ -26,7 +26,7 @@ You MUST create a task for each of these items and complete them in order:
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
-6. **Write design doc** — save to `docs/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md` and commit
+6. **Write design doc** — save to `.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md` and commit
 7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
@@ -103,7 +103,7 @@ digraph brainstorming {
 
 **Documentation:**
 
-- Write the validated design (spec) to `docs/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md`
+- Write the validated design (spec) to `.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md`
   - (User preferences for spec location override this default)
 - Use elements-of-style:writing-clearly-and-concisely skill if available
 - Commit the design document to git
@@ -157,3 +157,25 @@ A question about a UI topic is not automatically a visual question. "What does p
 
 If they agree to the companion, read the detailed guide before proceeding:
 `skills/brainstorming/visual-companion.md`
+
+<!-- wp-labs team overlay: BEGIN -->
+
+## Team workflow: sync the approved spec to a GitHub issue
+
+After the user approves the written spec (the User Review Gate passes) and BEFORE invoking
+writing-plans, link the spec to GitHub issue tracking:
+
+1. **Identify the tracking issue.** The spec derives from an existing issue if the conversation
+   or the spec text references one (e.g. `#42` or a GitHub issue URL).
+2. **If an existing issue is identified:** append the spec to it as a comment —
+   `gh issue comment <number> --body-file <spec-path>`.
+3. **If none is identified:** ask the user `Create a GitHub tracking issue for this spec? (Y/n)`.
+   On yes (the default), create it with the spec as the body —
+   `gh issue create --title "<spec slug>" --body-file <spec-path>`. On no, skip and note that no
+   issue is linked.
+4. **Record the issue** in the spec file as a `Tracking issue: <url>` line, then commit the spec
+   update. writing-plans reads this line to post the plan as a comment.
+
+If `gh` is missing or unauthenticated, report it and continue — never block the workflow on it.
+
+<!-- wp-labs team overlay: END -->
