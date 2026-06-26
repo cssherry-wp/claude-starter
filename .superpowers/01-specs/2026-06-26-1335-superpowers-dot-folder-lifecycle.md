@@ -164,4 +164,4 @@ immediately without waiting for a refresh.
 
 ## Tracking issue
 
-(to be filled in by the spec→issue step once this spec is approved)
+https://github.com/cssherry-wp/wp-labs-starter/issues/13
