@@ -1,17 +1,46 @@
+# --- Backend (Python) ---
+
+# Python bytecode and caches
 __pycache__/
 *.pyc
+
+# Virtual environment
 .venv/
+
+# Test, lint, and type-check caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Packaging metadata
+*.egg-info/
+
+# --- Frontend (Node) ---
+
+# Installed dependencies
 node_modules/
-frontend/dist/
 frontend/node_modules/.vite/
+
+# Build output
+frontend/dist/
+
+# --- Test artifacts ---
+
+# Playwright end-to-end reports and results
 playwright-report/
 test-results/
+
+# Django collected static files
 staticfiles/
-*.egg-info/
+
+# --- Shared ---
+
+# Environment variables and secrets — never commit real values
 .env
 .env.*
+
+# macOS Finder metadata
 .DS_Store
+
+# Local SQLite database
 db.sqlite3
