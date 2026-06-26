@@ -74,7 +74,17 @@ jobs:
               ENVVARS+=("DATABASE_URL=secretref:database-url")
             else
               # No DB provided → SQLite fallback + seeded admin from env.
-              SECRETS+=("admin-password=${PREVIEW_ADMIN_PASSWORD:-changeme}")
+              # Never use a hardcoded default password on a public preview: if the
+              # operator did not set PREVIEW_ADMIN_PASSWORD, mint a strong random one
+              # and mask it. The admin then has an unknown password (no usable login
+              # unless the operator sets the secret) — the app is still reachable for
+              # anonymous testing, but there is no weak/known credential to abuse.
+              if [ -z "${PREVIEW_ADMIN_PASSWORD:-}" ]; then
+                PREVIEW_ADMIN_PASSWORD="$(openssl rand -base64 30)"
+                echo "::add-mask::$PREVIEW_ADMIN_PASSWORD"
+                echo "ℹ️ PREVIEW_ADMIN_PASSWORD not set — seeded the preview admin with a random password. Set the secret to enable admin login." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              SECRETS+=("admin-password=${PREVIEW_ADMIN_PASSWORD}")
               ENVVARS+=("CREATE_SUPERUSER_ON_START=true" \
                         "DJANGO_SUPERUSER_USERNAME=${PREVIEW_ADMIN_USERNAME:-admin}" \
                         "DJANGO_SUPERUSER_EMAIL=${PREVIEW_ADMIN_EMAIL:-admin@example.com}" \

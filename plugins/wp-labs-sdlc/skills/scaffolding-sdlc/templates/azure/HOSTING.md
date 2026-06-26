@@ -139,11 +139,17 @@ closes or the label is removed. Preview apps migrate themselves on cold start
 - Set a repo **secret** `PREVIEW_DATABASE_URL` to point previews at a real database
   (e.g. a shared dev Postgres).
 - **If it is not set**, the preview falls back to **ephemeral in-container SQLite**
-  and seeds a Django admin so the preview is immediately usable. Configure the admin
-  via repo **variables** `PREVIEW_ADMIN_USERNAME` (default `admin`) /
-  `PREVIEW_ADMIN_EMAIL` and the repo **secret** `PREVIEW_ADMIN_PASSWORD`
-  (default `changeme` — set it). The SQLite DB and seeded user are recreated on each
-  cold start, which is fine for a throwaway preview.
+  and seeds a Django admin. Configure the admin via repo **variables**
+  `PREVIEW_ADMIN_USERNAME` (default `admin`) / `PREVIEW_ADMIN_EMAIL` and the repo
+  **secret** `PREVIEW_ADMIN_PASSWORD`. **If `PREVIEW_ADMIN_PASSWORD` is unset, a
+  strong random password is generated (and masked in logs)** — there is no weak
+  default, so admin login is effectively disabled until you set the secret (the app
+  is still reachable for anonymous testing). The SQLite DB and seeded user are
+  recreated on each cold start, which is fine for a throwaway preview.
+
+> Preview apps use **public (external) ingress** so reviewers can reach them. For
+> sensitive previews, add Azure Container Apps authentication or an IP allowlist, or
+> set `PREVIEW_ADMIN_PASSWORD` and rely on app-level auth.
 
 ## Notes
 
