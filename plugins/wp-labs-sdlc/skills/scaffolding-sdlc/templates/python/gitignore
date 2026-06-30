@@ -1,11 +1,28 @@
+# Python bytecode and caches
 __pycache__/
 *.pyc
+
+# Virtual environment
 .venv/
+
+# Test, lint, and type-check caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Packaging and build output
 *.egg-info/
+build/
+dist/
+
+# Environment variables and secrets — never commit real values,
+# but keep the checked-in .env.example template
 .env
 .env.*
+!.env.example
+
+# macOS Finder metadata
 .DS_Store
+
+# Local SQLite database
 db.sqlite3

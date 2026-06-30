@@ -1,8 +1,19 @@
+# Installed dependencies
 node_modules/
+
+# Build output
 dist/
 .astro/
+
+# Test coverage reports
 coverage/
+
+# Logs
 *.log
+
+# Environment variables and secrets — never commit real values
 .env
 .env.*
+
+# macOS Finder metadata
 .DS_Store

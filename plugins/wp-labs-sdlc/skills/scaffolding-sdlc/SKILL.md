@@ -50,7 +50,8 @@ directory; copy from there.
 
    Then produce a **scaffold inventory** — go through EVERY component this skill
    can add and mark each present / partial / missing:
-   - dev-loop: `Makefile`, tool configs, `.gitignore`, manifest
+   - dev-loop: `Makefile`, tool configs, `.gitignore`, `.env.example` (Python/
+     Fullstack), manifest
    - starter app (greenfield only)
    - `git-hooks/pre-commit`
    - each workflow: `ci.yml`, `security.yml`, `code-review.yml` (two jobs — a
@@ -60,7 +61,8 @@ directory; copy from there.
    - branch protection on the default branch (require a PR to merge; block
      force-push and deletion) — see "Set branch protection" below
    - `dependabot.yml`; the managed labels; hosting (`Dockerfile`,
-     `docker-compose.yml`, `infra/` Bicep, `azure-deploy.yml`)
+     `docker-compose.yml`, `infra/` Bicep, `cd.yml`, `ci-infra.yml`; App Service
+     **or** Azure Container Apps)
 
    Present the inventory to the user. **On an existing repo, add only the
    missing pieces** and **explicitly ask about each gap** before adding it —
@@ -84,7 +86,11 @@ directory; copy from there.
    (`templates/<stack>/`): the `Makefile`, tool configs, and `gitignore` →
    `.gitignore`. Merge `package-scripts.json` / `pyproject-tooling.toml` into an
    existing manifest (do not overwrite the whole file). Create README and the
-   manifest only if missing.
+   manifest only if missing. **Env example:** when the stack ships one (Python
+   and Fullstack do — the TS CLI stack has no env vars), copy
+   `templates/<stack>/.env.example` → `.env.example`; the `.gitignore` keeps it
+   tracked via the `!.env.example` negation. Never copy it to `.env`, and skip if
+   the repo already has its own `.env.example`.
 
    **Starter app (greenfield only).** If the repo has no source yet, also copy
    the stack's runnable skeleton from `templates/<stack>/scaffold/` (TS: a typed
@@ -110,18 +116,36 @@ directory; copy from there.
    force-pushes with lease; remind the user to add the GitHub App (preferred) or
    `REBASE_TOKEN` PAT secrets so rebased pushes re-trigger CI (see Prerequisites).
 
-6. **Hosting (web-app stacks).** For Python/Fullstack, offer the hosting layer:
-   copy `templates/<stack>/hosting/` (`Dockerfile`, `.dockerignore`,
-   `docker-compose.yml`) to the repo root, `templates/azure/infra/` → `infra/`,
-   `templates/azure/workflows/azure-deploy.yml` → `.github/workflows/`, and
-   `templates/azure/HOSTING.md`. Local: `docker compose up --build`. Deploy needs
-   the Azure OIDC secrets + repo variables in `HOSTING.md` (the deploy job
-   no-ops until `AZURE_WEBAPP_NAME` is set). The TS CLI-library stack has no
-   hosting layer. Skip if the user declines.
+6. **Hosting (web-app stacks).** For Python/Fullstack, offer the hosting layer.
+   Always copy `templates/<stack>/hosting/` (`Dockerfile`, `.dockerignore`,
+   `docker-compose.yml`) to the repo root and `templates/azure/HOSTING.md`.
+
+   **Then offer a compute choice** (one per repo):
+   - **App Service (container)** — turnkey web conveniences (Easy Auth, managed
+     certs, slots); always-on. Default/recommended for a single public web app.
+     Copy `infra/main.bicep` + modules + `parameters/<env>.parameters.json`;
+     copy `templates/azure/workflows/cd.appservice.yml` → `.github/workflows/cd.yml`.
+     Deploy no-ops until `AZURE_WEBAPP_NAME` is set.
+   - **Azure Container Apps (ACA)** — scale-to-zero, autoscaling, native
+     revisions; cold starts when scaled to zero. Copy `infra/main.aca.bicep`
+     (renamed to `infra/main.bicep` in the target repo) + modules
+     (`containerenv`, `containerapp`, `migration-job`) +
+     `parameters/aca.<env>.parameters.json` (renamed to `<env>.parameters.json`);
+     copy `cd.aca.yml` → `.github/workflows/cd.yml` and `cd-preview.yml` →
+     `.github/workflows/`. Deploy no-ops until `AZURE_CONTAINERAPP_NAME` is set.
+
+   Either way, copy `templates/github/workflows/ci-infra.yml` →
+   `.github/workflows/` (bicep lint, runs only on `infra/**` changes). The
+   migration toggle (`RUN_MIGRATIONS_ON_START`) is baked into the chosen Bicep —
+   App Service leaves it default-`true`; ACA sets it `false`. Local:
+   `docker compose up --build`. Deploy needs the Azure OIDC secrets + repo
+   variables documented in `HOSTING.md`. The TS CLI-library stack has no hosting
+   layer. Skip if the user declines.
 
 7. **Ensure labels.** Run `scripts/ensure-labels.sh` (idempotent). Creates
    `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`,
-   `dependencies`, `security`, `needs-rebase`.
+   `dependencies`, `security`, `needs-rebase`, `automation-deploy-test` (the last
+   opts a PR into the ACA ephemeral preview environment).
 
 8. **Verify & summarize.** Run `make check` and `make test` locally and report
    results. Summarize what was created/changed and list manual follow-ups: add

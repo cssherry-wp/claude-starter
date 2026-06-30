@@ -1,0 +1,163 @@
+name: CD Preview (ephemeral)
+
+# Opt-in per PR via the `automation-deploy-test` label. Deploys a throwaway,
+# scale-to-zero Container App for manual testing, links it in the PR description,
+# and tears it down when the PR closes or the label is removed.
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, reopened, closed]
+
+permissions:
+  id-token: write       # OIDC login to Azure
+  contents: read
+  pull-requests: write  # edit the PR description with the preview link
+
+env:
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+  BASE_APP: ${{ vars.AZURE_CONTAINERAPP_NAME }}
+  # Container App names: <=32 chars, lowercase alphanumeric + hyphens.
+  PREVIEW_APP: ${{ vars.AZURE_CONTAINERAPP_NAME }}-pr-${{ github.event.pull_request.number }}
+  PR: ${{ github.event.pull_request.number }}
+
+jobs:
+  deploy-preview:
+    # Same-repo PRs only (forks get no secrets), ACA configured, label present, not a close event.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.AZURE_CONTAINERAPP_NAME != '' &&
+      github.event.action != 'closed' &&
+      github.event.action != 'unlabeled' &&
+      contains(github.event.pull_request.labels.*.name, 'automation-deploy-test')
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build PR image in ACR
+        run: az acr build --registry "$ACR_NAME" --image "${BASE_APP}:${IMAGE_TAG}" .
+
+      - name: Deploy / update preview Container App
+        id: deploy
+        # A min0/max1 preview with RUN_MIGRATIONS_ON_START=true migrates itself on cold
+        # start (single replica → no migration race), so no separate Job is needed.
+        # DB strategy: if PREVIEW_DATABASE_URL is set the preview uses it; otherwise it
+        # falls back to ephemeral in-container SQLite and seeds an admin from
+        # PREVIEW_ADMIN_* so the preview is immediately usable. SQLite (and the seeded
+        # user) is recreated on each cold start — fine for a throwaway preview.
+        env:
+          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+          PREVIEW_ADMIN_USERNAME: ${{ vars.PREVIEW_ADMIN_USERNAME }}
+          PREVIEW_ADMIN_EMAIL: ${{ vars.PREVIEW_ADMIN_EMAIL }}
+          PREVIEW_ADMIN_PASSWORD: ${{ secrets.PREVIEW_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          IMAGE="${ACR_NAME}.azurecr.io/${BASE_APP}:${IMAGE_TAG}"
+          ENV_ID=$(az containerapp show -g "$RESOURCE_GROUP" -n "$BASE_APP" --query properties.environmentId -o tsv)
+          if az containerapp show -g "$RESOURCE_GROUP" -n "$PREVIEW_APP" >/dev/null 2>&1; then
+            az containerapp update -g "$RESOURCE_GROUP" -n "$PREVIEW_APP" --image "$IMAGE" >/dev/null
+          else
+            ENVVARS=("RUN_MIGRATIONS_ON_START=true")
+            SECRETS=()
+            if [ -n "${PREVIEW_DATABASE_URL:-}" ]; then
+              SECRETS+=("database-url=${PREVIEW_DATABASE_URL}")
+              ENVVARS+=("DATABASE_URL=secretref:database-url")
+            else
+              # No DB provided → SQLite fallback + seeded admin from env.
+              # Never use a hardcoded default password on a public preview: if the
+              # operator did not set PREVIEW_ADMIN_PASSWORD, mint a strong random one
+              # and mask it. The admin then has an unknown password (no usable login
+              # unless the operator sets the secret) — the app is still reachable for
+              # anonymous testing, but there is no weak/known credential to abuse.
+              if [ -z "${PREVIEW_ADMIN_PASSWORD:-}" ]; then
+                PREVIEW_ADMIN_PASSWORD="$(openssl rand -base64 30)"
+                echo "::add-mask::$PREVIEW_ADMIN_PASSWORD"
+                echo "ℹ️ PREVIEW_ADMIN_PASSWORD not set — seeded the preview admin with a random password. Set the secret to enable admin login." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              SECRETS+=("admin-password=${PREVIEW_ADMIN_PASSWORD}")
+              ENVVARS+=("CREATE_SUPERUSER_ON_START=true" \
+                        "DJANGO_SUPERUSER_USERNAME=${PREVIEW_ADMIN_USERNAME:-admin}" \
+                        "DJANGO_SUPERUSER_EMAIL=${PREVIEW_ADMIN_EMAIL:-admin@example.com}" \
+                        "DJANGO_SUPERUSER_PASSWORD=secretref:admin-password")
+            fi
+            CREATE_ARGS=(-g "$RESOURCE_GROUP" -n "$PREVIEW_APP" --environment "$ENV_ID" --image "$IMAGE"
+              --min-replicas 0 --max-replicas 1 --ingress external --target-port 8000
+              --registry-server "${ACR_NAME}.azurecr.io" --registry-identity system
+              --env-vars "${ENVVARS[@]}")
+            if [ "${#SECRETS[@]}" -gt 0 ]; then CREATE_ARGS+=(--secrets "${SECRETS[@]}"); fi
+            az containerapp create "${CREATE_ARGS[@]}" >/dev/null
+          fi
+          FQDN=$(az containerapp show -g "$RESOURCE_GROUP" -n "$PREVIEW_APP" --query properties.configuration.ingress.fqdn -o tsv)
+          echo "url=https://${FQDN}" >> "$GITHUB_OUTPUT"
+
+      - name: Link preview in PR description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          BLOCK=$(printf '<!-- preview-env:start -->\n🔍 **Preview environment:** %s\n<!-- preview-env:end -->' "$URL")
+          gh pr view "$PR" --json body -q .body > body.md
+          BLOCK="$BLOCK" python3 - body.md > newbody.md <<'PY'
+          import os, re, sys
+          body = open(sys.argv[1]).read()
+          block = os.environ["BLOCK"]
+          pat = re.compile(r"<!-- preview-env:start -->.*?<!-- preview-env:end -->", re.S)
+          body = pat.sub(block, body) if pat.search(body) else (body.rstrip() + "\n\n" + block + "\n")
+          sys.stdout.write(body)
+          PY
+          gh pr edit "$PR" --body-file newbody.md
+
+  teardown-preview:
+    # On close (merge or not), or when the label is removed.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.AZURE_CONTAINERAPP_NAME != '' &&
+      (github.event.action == 'closed' ||
+       (github.event.action == 'unlabeled' && github.event.label.name == 'automation-deploy-test'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Delete preview Container App
+        run: |
+          if az containerapp show -g "$RESOURCE_GROUP" -n "$PREVIEW_APP" >/dev/null 2>&1; then
+            az containerapp delete -g "$RESOURCE_GROUP" -n "$PREVIEW_APP" --yes
+            echo "deleted $PREVIEW_APP"
+          else
+            echo "no preview app $PREVIEW_APP to delete"
+          fi
+
+      - name: Strike through preview link in PR description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr view "$PR" --json body -q .body > body.md
+          python3 - body.md > newbody.md <<'PY'
+          import re, sys
+          body = open(sys.argv[1]).read()
+          # Strike through the URL inside the marker block and mark it torn down (idempotent).
+          def repl(m):
+              block = m.group(0)
+              if "torn down" in block:
+                  return block
+              block = re.sub(r"(https?://\S+)", r"~~\1~~ _(torn down)_", block, count=1)
+              return block
+          body = re.sub(r"<!-- preview-env:start -->.*?<!-- preview-env:end -->", repl, body, flags=re.S)
+          sys.stdout.write(body)
+          PY
+          gh pr edit "$PR" --body-file newbody.md
