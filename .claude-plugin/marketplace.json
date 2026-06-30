@@ -18,7 +18,7 @@
       "source": "./plugins/wp-labs-sdlc",
       "description": "Repo SDLC bootstrapping: the scaffolding-sdlc skill wires lint/test/e2e/security gates, Dependabot, PR-status labels, pre-commit hooks, hosting (Docker + Azure Bicep), and Claude PR automation onto a repo.",
       "category": "development",
-      "version": "0.1.0"
+      "version": "0.2.0"
     },
     {
       "name": "wp-labs-superpowers",

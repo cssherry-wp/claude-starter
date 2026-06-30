@@ -61,6 +61,8 @@ directory; copy from there.
      force-push and deletion) — see "Set branch protection" below
    - `dependabot.yml`; the managed labels; hosting (`Dockerfile`,
      `docker-compose.yml`, `infra/` Bicep, `azure-deploy.yml`)
+   - Claude team settings (`.claude/settings.json`: the marketplaces,
+     default `enabledPlugins`, and the ponytail `statusLine` badge)
 
    Present the inventory to the user. **On an existing repo, add only the
    missing pieces** and **explicitly ask about each gap** before adding it —
@@ -123,7 +125,26 @@ directory; copy from there.
    `check-in-progress`, `check-pass`, `check-fail`, `question`, `no-automation`,
    `dependencies`, `security`, `needs-rebase`.
 
-8. **Verify & summarize.** Run `make check` and `make test` locally and report
+8. **Claude team settings.** Deep-merge `templates/claude/settings.json` — the
+   team default Claude config (marketplaces, default `enabledPlugins`, and the
+   ponytail `statusLine` badge) — into the target repo's `.claude/settings.json`
+   (team values win on conflict; the repo keeps every other key). This template
+   is the **single source of truth** for the team default set; the root README's
+   "Recommended setup" points here.
+
+   ```bash
+   tmpl=templates/claude/settings.json   # this skill's template
+   mkdir -p .claude
+   jq -s '.[0] * .[1]' .claude/settings.json "$tmpl" 2>/dev/null || cp "$tmpl" .claude/settings.json
+   ```
+
+   **Never clobber silently:** if the repo already sets `statusLine`, `model`, or
+   a plugin entry differently, show the diff and ask before overwriting. The
+   `statusLine` command assumes a bash-capable shell (`ls`/`sort`/`tail`) and that
+   the user has ponytail installed; it self-resolves the newest install, so it
+   survives plugin auto-updates.
+
+9. **Verify & summarize.** Run `make check` and `make test` locally and report
    results. Summarize what was created/changed and list manual follow-ups: add
    the repo secrets above (incl. Azure OIDC if hosting was added), and
    (recommended) enable branch protection requiring the CI checks.

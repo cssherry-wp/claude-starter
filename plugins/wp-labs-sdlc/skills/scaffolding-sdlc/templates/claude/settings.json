@@ -2,10 +2,14 @@
   "extraKnownMarketplaces": {
     "wp-labs-starter": {
       "source": { "source": "github", "repo": "cssherry-wp/wp-labs-starter" }
+    },
+    "ponytail": {
+      "source": { "source": "github", "repo": "DietrichGebert/ponytail" }
     }
   },
   "enabledPlugins": {
     "wp-labs-standards@wp-labs-starter": true,
+    "ponytail@ponytail": true,
     "superpowers@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
@@ -13,5 +17,9 @@
     "context7@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$(ls -d \"$HOME\"/.claude/plugins/cache/ponytail/ponytail/*/hooks/ponytail-statusline.sh 2>/dev/null | sort -V | tail -1)\""
   }
 }
