@@ -89,10 +89,13 @@ while IFS= read -r f; do
   rm -f "$f.bak"
 done < <(grep -rl 'docs/superpowers/\(specs\|plans\)' "$FORK_DIR/skills" 2>/dev/null || true)
 
-# Best-effort HHmm filename patterns (skip silently if upstream changed the wording)
-sed -i.bak 's#docs/superpowers/specs/YYYY-MM-DD-<topic>-design\.md#.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md#g' \
+# Best-effort HHmm filename patterns (skip silently if upstream changed the wording).
+# NOTE: the loop above has already rewritten the docs/superpowers/{specs,plans}
+# prefix to .superpowers/{01-specs,02-plans}, so these patterns must match the
+# already-rewritten prefix — not the original upstream one.
+sed -i.bak 's#.superpowers/01-specs/YYYY-MM-DD-<topic>-design\.md#.superpowers/01-specs/YYYY-MM-DD-HHmm-<name-of-spec>.md#g' \
   "$FORK_DIR/skills/brainstorming/SKILL.md" 2>/dev/null && rm -f "$FORK_DIR/skills/brainstorming/SKILL.md.bak" || true
-sed -i.bak 's#docs/superpowers/plans/YYYY-MM-DD-<feature-name>\.md#.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md#g' \
+sed -i.bak 's#.superpowers/02-plans/YYYY-MM-DD-<feature-name>\.md#.superpowers/02-plans/YYYY-MM-DD-HHmm-<name-of-plan>.md#g' \
   "$FORK_DIR/skills/writing-plans/SKILL.md" 2>/dev/null && rm -f "$FORK_DIR/skills/writing-plans/SKILL.md.bak" || true
 
 # --- Re-apply team workflow overlays (survive the upstream rebuild) ----------
